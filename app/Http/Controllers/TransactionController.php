@@ -14,12 +14,23 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Transaction::with(['wallet', 'category']) // Eager load category
+        // Base query for the transaction list (will be filtered)
+        $query = Transaction::with(['wallet', 'category'])
             ->where('user_id', $request->user()->id)
             ->where('is_active', true)
             ->orderBy('date', 'desc')
             ->orderBy('created_at', 'desc');
 
+        // Summary calculations (unaffected by search/filters)
+        $summaryQuery = Transaction::where('user_id', $request->user()->id)
+            ->where('is_active', true);
+
+        $totalIncome = (clone $summaryQuery)->where('type', 'income')->sum('amount_in_base_currency');
+        $totalExpense = (clone $summaryQuery)->where('type', 'expense')->sum('amount_in_base_currency');
+        $totalIncomeCount = (clone $summaryQuery)->where('type', 'income')->count();
+        $totalExpenseCount = (clone $summaryQuery)->where('type', 'expense')->count();
+
+        // Apply filters only to the list query
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -46,23 +57,22 @@ class TransactionController extends Controller
             $query->whereDate('date', '<=', $request->input('end_date'));
         }
 
-        // Calculate totals based on the filtered query (before pagination)
-        $summaryQuery = clone $query;
-        $totalIncome = (clone $summaryQuery)->where('type', 'income')->sum('amount_in_base_currency');
-        $totalExpense = (clone $summaryQuery)->where('type', 'expense')->sum('amount_in_base_currency');
-
         $exchangeRateService = app(ExchangeRateService::class);
         $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
 
+        $perPage = $request->input('per_page', 10);
+
         return Inertia::render('Transactions/Index', [
-            'transactions' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search', 'wallet_id', 'type', 'start_date', 'end_date']),
+            'transactions' => $query->paginate($perPage)->withQueryString(),
+            'filters' => $request->only(['search', 'wallet_id', 'type', 'start_date', 'end_date', 'per_page']),
             'categories' => Category::forUser($request->user()->id)->get(),
             'wallets' => Wallet::where('user_id', $request->user()->id)->where('is_active', true)->get(),
             'currentExchangeRate' => $currentRate,
             'summary' => [
                 'total_income' => (float) $totalIncome,
                 'total_expense' => (float) $totalExpense,
+                'total_income_count' => $totalIncomeCount,
+                'total_expense_count' => $totalExpenseCount,
                 'net_balance' => (float) ($totalIncome - $totalExpense),
             ]
         ]);
@@ -78,6 +88,17 @@ class TransactionController extends Controller
             'description' => 'nullable|string',
             'wallet_id' => 'required|exists:wallets,id',
             'exchange_rate' => 'nullable|numeric',
+        ], [
+            'amount.required' => __('amount_required'),
+            'amount.numeric' => __('amount_numeric'),
+            'type.required' => __('type_required'),
+            'type.in' => __('type_in'),
+            'category.required' => __('category_required'),
+            'date.required' => __('date_required'),
+            'date.date' => __('date_date'),
+            'wallet_id.required' => __('wallet_id_required'),
+            'wallet_id.exists' => __('wallet_id_exists'),
+            'exchange_rate.numeric' => __('exchange_rate_numeric'),
         ]);
 
         DB::transaction(function () use ($validated, $request) {
@@ -92,12 +113,22 @@ class TransactionController extends Controller
                 ->first();
 
             if (!$category) {
+                // Check limit for non-premium users before creating dynamic category
+                $user = $request->user();
+                $customCategoryCount = Category::where('user_id', $user->id)->count();
+
+                if (!$user->is_premium && $customCategoryCount >= 3) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'premium' => 'You have reached the limit of 3 custom categories. Upgrade to Professional to add unlimited categories.'
+                    ]);
+                }
+
                 // Create new User Category
                 $category = Category::create([
                     'name' => $categoryName,
                     'type' => $validated['type'],
                     'color' => 'bg-gray-500',
-                    'user_id' => $request->user()->id,
+                    'user_id' => $user->id,
                 ]);
             }
 
@@ -142,6 +173,17 @@ class TransactionController extends Controller
             'description' => 'nullable|string',
             'wallet_id' => 'required|exists:wallets,id',
             'exchange_rate' => 'nullable|numeric',
+        ], [
+            'amount.required' => __('amount_required'),
+            'amount.numeric' => __('amount_numeric'),
+            'type.required' => __('type_required'),
+            'type.in' => __('type_in'),
+            'category.required' => __('category_required'),
+            'date.required' => __('date_required'),
+            'date.date' => __('date_date'),
+            'wallet_id.required' => __('wallet_id_required'),
+            'wallet_id.exists' => __('wallet_id_exists'),
+            'exchange_rate.numeric' => __('exchange_rate_numeric'),
         ]);
 
         DB::transaction(function () use ($validated, $transaction, $request) {
@@ -163,11 +205,21 @@ class TransactionController extends Controller
                 ->first();
 
             if (!$category) {
+                // Check limit for non-premium users
+                $user = $request->user();
+                $customCategoryCount = Category::where('user_id', $user->id)->count();
+
+                if (!$user->is_premium && $customCategoryCount >= 3) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'premium' => 'You have reached the limit of 3 custom categories. Upgrade to Professional to add unlimited categories.'
+                    ]);
+                }
+
                 $category = Category::create([
                     'name' => $categoryName,
                     'type' => $validated['type'],
                     'color' => 'bg-gray-500',
-                    'user_id' => $transaction->user_id // Use transaction owner ID
+                    'user_id' => $user->id // Use authenticated user ID
                 ]);
             }
 

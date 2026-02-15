@@ -19,47 +19,74 @@ class AnalysisController extends Controller
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        // Pass available months for dropdown (same logic as Dashboard)
-        $availableMonths = Transaction::selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value, DATE_FORMAT(date, "%M %Y") as month_label')
+        return Inertia::render('Analysis/Index', [
+            'summary' => $analysisService->getSummary($startDate, $endDate),
+            'categorySpending' => $analysisService->getSpendingByCategory($startDate, $endDate),
+            'cashFlowTrend' => $analysisService->getCashFlowTrend($startDate, $endDate),
+            'walletAllocation' => $analysisService->getWalletAllocation(),
+            'smartInsights' => $this->getSmartInsights($analysisService, $startDate, $endDate),
+            'financialTips' => $this->getFinancialTips($analysisService, $startDate, $endDate),
+            'filters' => [
+                'month' => $month,
+            ],
+            'availableMonths' => $this->getAvailableMonths(),
+            'is_premium' => auth()->user()->is_premium
+        ]);
+    }
+
+    private function getAvailableMonths()
+    {
+        $availableMonths = Transaction::where('user_id', auth()->id())
+            ->where('is_active', true)
+            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
             ->distinct()
             ->orderBy('month_value', 'desc')
             ->get()
             ->map(function ($item) {
                 return [
                     'value' => $item->month_value,
-                    'label' => $item->month_label,
+                    'label' => Carbon::createFromFormat('Y-m', $item->month_value)->translatedFormat('F Y'),
                 ];
             });
 
-        $summary = $analysisService->getSummary($startDate, $endDate);
-        $categorySpending = $analysisService->getSpendingByCategory($startDate, $endDate);
-        $cashFlowTrend = $analysisService->getCashFlowTrend($startDate, $endDate);
-        $walletAllocation = $analysisService->getWalletAllocation();
+        if ($availableMonths->isEmpty()) {
+            $now = Carbon::now();
+            return collect([
+                [
+                    'value' => $now->format('Y-m'),
+                    'label' => $now->translatedFormat('F Y'),
+                ]
+            ]);
+        }
+
+        return $availableMonths;
+    }
+
+    private function getSmartInsights($service, $startDate, $endDate)
+    {
+        if (!auth()->user()->is_premium) {
+            return [];
+        }
+
         try {
-            $smartInsights = $analysisService->getSmartInsights($startDate, $endDate);
+            return $service->getSmartInsights($startDate, $endDate);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Smart Insights Error: ' . $e->getMessage());
-            $smartInsights = [];
+            return [];
+        }
+    }
+
+    private function getFinancialTips($service, $startDate, $endDate)
+    {
+        if (!auth()->user()->is_premium) {
+            return [];
         }
 
         try {
-            $financialTips = $analysisService->getFinancialTips($startDate, $endDate);
+            return $service->getFinancialTips($startDate, $endDate);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Financial Tips Error: ' . $e->getMessage());
-            $financialTips = [];
+            return [];
         }
-
-        return Inertia::render('Analysis/Index', [
-            'summary' => $summary,
-            'categorySpending' => $categorySpending,
-            'cashFlowTrend' => $cashFlowTrend,
-            'walletAllocation' => $walletAllocation,
-            'smartInsights' => $smartInsights,
-            'financialTips' => $financialTips,
-            'filters' => [
-                'month' => $month,
-            ],
-            'availableMonths' => $availableMonths
-        ]);
     }
 }

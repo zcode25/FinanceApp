@@ -16,9 +16,33 @@ class WalletController extends Controller
         $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
 
         return Inertia::render('Wallets/Index', [
-            'wallets' => Wallet::where('user_id', auth()->id())->latest()->get(),
+            'wallets' => Wallet::where('user_id', auth()->id())
+                ->orderBy('sort_order', 'asc')
+                ->latest()
+                ->get(),
             'currentExchangeRate' => $currentRate,
         ]);
+    }
+
+    public function reorder(Request $request)
+    {
+        \Log::info('Reorder Request Payload:', $request->all());
+
+        $validated = $request->validate([
+            'wallets' => 'required|array',
+            'wallets.*.id' => 'required|exists:wallets,id',
+            'wallets.*.sort_order' => 'required|integer',
+        ]);
+
+        foreach ($request->wallets as $walletData) {
+            \Log::info("Updating Wallet ID: {$walletData['id']} to Order: {$walletData['sort_order']}");
+
+            Wallet::where('id', $walletData['id'])
+                ->where('user_id', auth()->id())
+                ->update(['sort_order' => $walletData['sort_order']]);
+        }
+
+        return redirect()->back();
     }
 
     public function store(Request $request)
@@ -32,9 +56,22 @@ class WalletController extends Controller
             'bank_name' => 'nullable|string|max:255',
         ]);
 
+        $user = auth()->user();
+        $walletCount = Wallet::where('user_id', $user->id)->count();
+
+        if (!$user->is_premium && $walletCount >= 3) {
+            return redirect()->back()->withErrors([
+                'premium' => 'You have reached the limit of 3 wallets. Upgrade to Professional to add unlimited wallets.'
+            ]);
+        }
+
         // Add default color if not present or let it handle in frontend/random
         $validated['color'] = $this->getRandomColor();
         $validated['user_id'] = auth()->id();
+
+        // Set new wallet to be last
+        $maxOrder = Wallet::where('user_id', auth()->id())->max('sort_order');
+        $validated['sort_order'] = $maxOrder ? $maxOrder + 1 : 0;
 
         Wallet::create($validated);
 

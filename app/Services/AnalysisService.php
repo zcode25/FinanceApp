@@ -32,18 +32,15 @@ class AnalysisService
 
     public function getCashFlowTrend(Carbon $startDate, Carbon $endDate)
     {
-        // ... (Keep existing implementation, it looks fine)
-        // Aligning exact logic with DashboardService for consistency
-        $daysInPeriod = $startDate->diffInDays($endDate) + 1;
+        $daysInMonth = $startDate->daysInMonth;
         $labels = [];
         $incomeData = [];
         $expenseData = [];
 
-        // Iterate through each day and query DB directly ensures exact matching
-        for ($d = 0; $d < $daysInPeriod; $d++) {
-            $currentDate = $startDate->copy()->addDays($d);
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $currentDate = $startDate->copy()->day($d);
             $dayStr = $currentDate->format('d'); // '01', '02'
-            $dateFull = $currentDate->toDateString(); // '2026-01-01'
+            $dateFull = $currentDate->toDateString(); // '2026-02-01'
 
             $labels[] = $dayStr;
 

@@ -62,6 +62,12 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'current_password' => 'required|current_password',
             'password' => 'required|string|min:8|confirmed',
+        ], [
+            'current_password.required' => __('current_password_required'),
+            'current_password.current_password' => __('current_password_invalid'),
+            'password.required' => __('new_password_required'),
+            'password.min' => __('new_password_min'),
+            'password.confirmed' => __('new_password_confirmed'),
         ]);
 
         $request->user()->update([
@@ -113,6 +119,11 @@ class SettingsController extends Controller
         ]);
 
         $user = $request->user();
+
+        // Delete avatar from storage if exists
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
 
         Auth::logout();
 

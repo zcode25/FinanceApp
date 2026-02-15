@@ -20,21 +20,26 @@ import Swal from 'sweetalert2';
     
     const confirmReset = () => {
         Swal.fire({
-            title: __('reset_confirm_title'),
-            text: __('reset_confirm_text'),
+            title: __('clear_all_data_title'),
+            text: __('clear_all_data_text'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#e11d48', // Rose 600
-            cancelButtonColor: '#374151',
-            confirmButtonText: __('yes_reset'),
-            background: '#1f2937',
-            color: '#ffffff',
-            input: 'password',
-            inputPlaceholder: __('enter_password_confirm'),
-            inputAttributes: {
-                autocapitalize: 'off',
-                autocorrect: 'off'
+            confirmButtonText: __('yes_delete_everything'),
+            cancelButtonText: __('cancel'),
+            customClass: {
+                popup: '!rounded-[2rem] !p-10 !bg-white !shadow-2xl !border !border-slate-100 !font-sans !antialiased',
+                title: '!text-xl !font-bold !text-slate-900 !pt-4 !pb-2 !px-0 !m-0 !leading-tight',
+                htmlContainer: '!text-sm !font-semibold !text-slate-500 !leading-relaxed !pb-6 !px-0 !m-0',
+                actions: '!flex !items-center !justify-center !gap-3 !mt-4 !w-full !px-0',
+                confirmButton: '!inline-flex !items-center !justify-center !bg-rose-600 !text-white !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm hover:!shadow-rose-600/20 hover:!bg-rose-700 active:!scale-95 !border-none !outline-none !m-0 !cursor-pointer',
+                cancelButton: '!inline-flex !items-center !justify-center !bg-slate-100 !text-slate-700 hover:!bg-slate-200 !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm !border-none !outline-none !m-0 !cursor-pointer active:!scale-95',
+                icon: '!border-4 !border-rose-100 !text-rose-600 !scale-110 !mb-6 !mt-2',
+                input: '!bg-slate-50 !border !border-slate-100 !rounded-xl !px-6 !py-4 !text-slate-900 !placeholder-slate-400 !focus:outline-none !focus:ring-2 !focus:ring-indigo-100 !focus:border-indigo-500 !transition-all !font-bold !mt-4'
             },
+            buttonsStyling: false,
+            backdrop: 'rgba(15, 23, 42, 0.4)',
+            input: 'password',
+            inputPlaceholder: __('confirm_with_master_key'),
             preConfirm: (password) => {
                 if (!password) {
                     Swal.showValidationMessage(__('password_required'));
@@ -49,23 +54,19 @@ import Swal from 'sweetalert2';
                     preserveScroll: true,
                     onSuccess: () => {
                         Swal.fire({
-                            title: __('reset_complete_title'),
-                            text: __('reset_complete_text'),
+                            title: __('reset_complete'),
+                            text: __('portfolio_cleared'),
                             icon: 'success',
-                            background: '#1f2937',
-                            color: '#ffffff',
-                            confirmButtonColor: '#6366f1'
+                            buttonsStyling: false
                         });
                         resetForm.reset();
                     },
                     onError: () => {
                         Swal.fire({
-                            title: 'Error',
-                            text: __('incorrect_password'),
+                            title: __('auth_failed'),
+                            text: __('incorrect_master_key'),
                             icon: 'error',
-                            background: '#1f2937',
-                            color: '#ffffff',
-                            confirmButtonColor: '#6366f1'
+                            buttonsStyling: false
                         });
                         resetForm.reset();
                     }
@@ -76,17 +77,26 @@ import Swal from 'sweetalert2';
     
     const confirmDeleteAccount = () => {
         Swal.fire({
-            title: __('delete_account_confirm_title'),
-            text: __('delete_account_confirm_text'),
+            title: __('delete_account_title'),
+            text: __('delete_account_text'),
             icon: 'error',
             showCancelButton: true,
-            confirmButtonColor: '#e11d48',
-            cancelButtonColor: '#374151',
             confirmButtonText: __('yes_delete_account'),
-            background: '#1f2937',
-            color: '#ffffff',
+            cancelButtonText: __('keep_account'),
+            customClass: {
+                popup: '!rounded-[2rem] !p-10 !bg-white !shadow-2xl !border !border-slate-100 !font-sans !antialiased',
+                title: '!text-xl !font-bold !text-slate-900 !pt-4 !pb-2 !px-0 !m-0 !leading-tight',
+                htmlContainer: '!text-sm !font-semibold !text-slate-500 !leading-relaxed !pb-6 !px-0 !m-0',
+                actions: '!flex !items-center !justify-center !gap-3 !mt-4 !w-full !px-0',
+                confirmButton: '!inline-flex !items-center !justify-center !bg-rose-600 !text-white !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm hover:!shadow-rose-600/20 hover:!bg-rose-700 active:!scale-95 !border-none !outline-none !m-0 !cursor-pointer',
+                cancelButton: '!inline-flex !items-center !justify-center !bg-slate-100 !text-slate-700 hover:!bg-slate-200 !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm !border-none !outline-none !m-0 !cursor-pointer active:!scale-95',
+                icon: '!border-4 !border-rose-100 !text-rose-600 !scale-110 !mb-6 !mt-2',
+                input: '!bg-slate-50 !border !border-slate-100 !rounded-xl !px-6 !py-4 !text-slate-900 !placeholder-slate-400 !focus:outline-none !focus:ring-2 !focus:ring-indigo-100 !focus:border-indigo-500 !transition-all !font-bold !mt-4'
+            },
+            buttonsStyling: false,
+            backdrop: 'rgba(15, 23, 42, 0.4)',
             input: 'password',
-            inputPlaceholder: __('enter_password_confirm'),
+            inputPlaceholder: __('confirm_with_master_key'),
             preConfirm: (password) => {
                 if (!password) {
                     Swal.showValidationMessage(__('password_required'));
@@ -103,11 +113,10 @@ import Swal from 'sweetalert2';
                     },
                     onError: () => {
                         Swal.fire({
-                            title: 'Error',
-                            text: __('incorrect_password'),
+                            title: __('termination_inhibited'),
+                            text: __('verification_failed'),
                             icon: 'error',
-                            background: '#1f2937',
-                            color: '#ffffff'
+                            buttonsStyling: false
                         });
                         deleteForm.reset();
                     }
@@ -118,59 +127,61 @@ import Swal from 'sweetalert2';
     </script>
     
     <template>
-        <div class="space-y-8 max-w-4xl">
+        <div class="space-y-8 md:space-y-10 w-full">
             <!-- Export Data -->
-            <div class="glass-card p-8 border-emerald-500/20 relative overflow-hidden">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400">
+            <div class="w-full bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-10 -top-10 w-64 h-64 bg-emerald-50/50 rounded-full blur-3xl transition-all group-hover:bg-emerald-100/50"></div>
+                
+                <div class="flex items-center gap-6 mb-10 relative z-10">
+                    <div class="p-3.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm">
                         <Download class="w-6 h-6" />
                     </div>
                     <div>
-                         <h3 class="text-lg font-bold text-white">{{ __('export_data') }}</h3>
-                         <p class="text-sm text-gray-400">{{ __('export_data_desc') }}</p>
+                         <h3 class="text-xl font-bold text-slate-900 leading-none mb-1.5">{{ __('export_data') }}</h3>
+                         <p class="text-sm font-semibold text-slate-400">{{ __('export_data_desc') }}</p>
                     </div>
                 </div>
                 
-                <div class="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
-                    <div>
-                        <h4 class="text-white font-medium">{{ __('transaction_history') }}</h4>
-                        <p class="text-xs text-gray-500 mt-1">{{ __('transaction_history_desc') }}</p>
+                <div class="flex flex-col md:flex-row items-center justify-between p-6 md:p-7 rounded-2xl bg-slate-50 border border-slate-100 gap-6 relative z-10">
+                    <div class="text-center md:text-left">
+                        <h4 class="text-slate-900 font-bold text-lg leading-snug">{{ __('transaction_history') }}</h4>
+                        <p class="text-xs font-bold text-slate-500 mt-1">{{ __('transaction_history_desc') }}</p>
                     </div>
-                    <button @click="exportData" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
-                        <Download class="w-4 h-4" /> {{ __('download_csv') }}
+                    <button @click="exportData" class="w-full md:w-auto px-7 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2.5 active:scale-95 text-sm">
+                        <Download class="w-4.5 h-4.5" /> {{ __('download_csv') }}
                     </button>
                 </div>
             </div>
     
             <!-- Danger Zone -->
-            <div class="glass-card p-8 border-rose-500/20 relative overflow-hidden">
-                <div class="flex items-center gap-4 mb-8">
-                    <div class="p-3 rounded-2xl bg-rose-500/10 text-rose-400">
+            <div class="w-full bg-white rounded-3xl p-6 md:p-8 border border-rose-100 shadow-sm relative overflow-hidden group">
+                <div class="flex items-center gap-6 mb-10">
+                    <div class="p-3.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 shadow-sm">
                         <AlertTriangle class="w-6 h-6" />
                     </div>
                     <div>
-                         <h3 class="text-lg font-bold text-white">{{ __('danger_zone') }}</h3>
-                         <p class="text-sm text-gray-400">{{ __('danger_zone_desc') }}</p>
+                         <h3 class="text-xl font-bold text-slate-900 leading-none mb-1.5">{{ __('danger_zone') }}</h3>
+                         <p class="text-sm font-semibold text-slate-400">{{ __('danger_zone_desc') }}</p>
                     </div>
                 </div>
     
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-rose-500/5 border border-rose-500/10">
-                        <div>
-                            <h4 class="text-white font-medium">{{ __('reset_all_data') }}</h4>
-                            <p class="text-xs text-gray-500 mt-1">{{ __('reset_all_data_desc') }}</p>
+                <div class="space-y-6">
+                    <div class="flex flex-col md:flex-row items-center justify-between p-6 md:p-7 rounded-2xl bg-rose-50/30 border border-rose-100 gap-6">
+                        <div class="text-center md:text-left">
+                            <h4 class="text-rose-900 font-bold text-lg leading-none mb-1.5">{{ __('reset_all_data') }}</h4>
+                            <p class="text-xs font-bold text-rose-500">{{ __('reset_all_data_desc') }}</p>
                         </div>
-                        <button @click="confirmReset" class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white rounded-lg text-sm font-bold transition-all border border-rose-500/20">
+                        <button @click="confirmReset" class="w-full md:w-auto px-7 py-3.5 bg-white hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl font-bold transition-all border border-rose-100 active:scale-95 text-sm">
                             {{ __('reset_data') }}
                         </button>
                     </div>
     
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-rose-500/5 border border-rose-500/10">
-                        <div>
-                            <h4 class="text-white font-medium">{{ __('delete_account') }}</h4>
-                            <p class="text-xs text-gray-500 mt-1">{{ __('delete_account_desc') }}</p>
+                    <div class="flex flex-col md:flex-row items-center justify-between p-6 md:p-7 rounded-2xl bg-rose-600 text-white gap-6 shadow-xl shadow-rose-200">
+                        <div class="text-center md:text-left">
+                            <h4 class="font-bold text-lg leading-none mb-1.5">{{ __('delete_account') }}</h4>
+                            <p class="text-xs font-bold text-rose-100">{{ __('delete_account_desc') }}</p>
                         </div>
-                        <button @click="confirmDeleteAccount" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-rose-500/20">
+                        <button @click="confirmDeleteAccount" class="w-full md:w-auto px-7 py-3.5 bg-white text-rose-600 rounded-xl font-bold transition-all shadow-lg hover:bg-rose-50 active:scale-95 text-sm">
                             {{ __('delete_account') }}
                         </button>
                     </div>

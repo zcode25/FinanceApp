@@ -40,9 +40,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
-            'locale' => $request->user()?->locale ?? 'en',
+            'locale' => $request->session()->get('locale') ?? $request->user()?->locale ?? 'en',
             'translations' => function () use ($request) {
-                $locale = $request->user()?->locale ?? 'en';
+                $locale = $request->session()->get('locale') ?? $request->user()?->locale ?? 'en';
                 $path = base_path("lang/{$locale}.json");
                 return file_exists($path) ? json_decode(file_get_contents($path), true) : [];
             },
@@ -50,6 +50,8 @@ class HandleInertiaRequests extends Middleware
                 ...(new \Tighten\Ziggy\Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
+            'midtrans_client_key' => config('services.midtrans.client_key') ?? env('MIDTRANS_CLIENT_KEY'),
+            'midtrans_is_production' => env('MIDTRANS_IS_PRODUCTION', false),
         ];
     }
 }

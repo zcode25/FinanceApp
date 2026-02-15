@@ -27,65 +27,65 @@ import DataTab from './Partials/DataTab.vue';
     <template>
         <Head :title="__('settings')" />
         <Layout>
-            <div class="max-w-7xl mx-auto">
-                 <header class="mb-8">
-                    <h1 class="text-3xl font-bold text-white mb-2">{{ __('settings') }}</h1>
-                    <p class="text-gray-400">{{ __('settings_desc') }}</p>
-                </header>
-    
-                <div class="flex flex-col lg:flex-row gap-8">
-                    <!-- Sidebar Tabs -->
-                    <div class="w-full lg:w-64 space-y-2 shrink-0">
-                        <button 
-                            v-for="tab in tabs" 
-                            :key="tab.id"
-                            @click="activeTab = tab.id"
-                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm"
-                            :class="activeTab === tab.id ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-lg shadow-indigo-500/10' : 'text-gray-400 hover:text-white hover:bg-white/5'"
-                        >
-                            <component :is="tab.icon" class="w-4 h-4" />
-                            {{ tab.label }}
-                        </button>
-                        
-                        <!-- Stats Widget -->
-                        <div class="mt-8 p-6 rounded-2xl bg-white/5 border border-white/5">
-                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">{{ __('account_stats') }}</h4>
-                            <div class="space-y-3">
-                                <div class="flex justify-between text-sm">
-                                    <span class="text-gray-400">{{ __('transactions') }}</span>
-                                    <span class="text-white font-mono">{{ stats.transactions }}</span>
-                                </div>
-                                 <div class="flex justify-between text-sm">
-                                    <span class="text-gray-400">{{ __('wallets') }}</span>
-                                    <span class="text-white font-mono">{{ stats.wallets }}</span>
-                                </div>
-                                 <div class="flex justify-between text-sm">
-                                    <span class="text-gray-400">{{ __('budgets') }}</span>
-                                    <span class="text-white font-mono">{{ stats.budgets }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                <!-- Main Content Area -->
-                <div class="flex-1 min-w-0">
-                    <Transition 
-                        enter-active-class="transition duration-300 ease-out" 
-                        enter-from-class="opacity-0 translate-y-2" 
-                        enter-to-class="opacity-100 translate-y-0"
-                        leave-active-class="transition duration-200 ease-in" 
-                        leave-from-class="opacity-100" 
-                        leave-to-class="opacity-0"
-                        mode="out-in"
-                    >
-                        <div :key="activeTab">
-                            <ProfileTab v-if="activeTab === 'profile'" :user="user" />
-                            <PreferencesTab v-if="activeTab === 'preferences'" :user="user" />
-                            <DataTab v-if="activeTab === 'data'" />
-                        </div>
-                    </Transition>
+        <header class="mb-8 space-y-1 relative z-10">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">{{ __('settings') }}</h1>
+            <p class="text-sm md:text-base text-slate-500 font-medium">{{ __('settings_desc') }}</p>
+        </header>
+     
+        <div class="flex flex-col lg:flex-row gap-8 pb-28 md:pb-0 items-start">
+          <!-- Sidebar Tabs Card -->
+          <div class="w-full lg:w-80 shrink-0 bg-white border border-slate-100 rounded-3xl p-4 shadow-sm relative z-10 sticky top-[180px]">
+            <div class="space-y-1">
+              <button 
+                v-for="tab in tabs" 
+                :key="tab.id"
+                @click="activeTab = tab.id"
+                class="w-full flex items-center gap-3 px-5 py-4 rounded-2xl transition-all font-bold text-sm group"
+                :class="activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'"
+              >
+                <component :is="tab.icon" class="w-4.5 h-4.5 transition-transform group-hover:scale-110" />
+                {{ tab.label }}
+              </button>
+            </div>
+            
+            <!-- Usage Metrics Wrapper -->
+            <div class="mt-6 pt-6 border-t border-slate-50 px-2 pb-2">
+              <h4 class="text-[11px] font-bold text-slate-400 mb-5 pl-1 tracking-wider">{{ __('account_stats') }}</h4>
+              <div class="space-y-4">
+                <div class="flex justify-between items-center text-[13px]">
+                  <span class="font-semibold text-slate-500">{{ __('transactions') }}</span>
+                  <span class="text-slate-900 font-bold tabular-nums">{{ stats.transactions }}</span>
                 </div>
+                <div class="flex justify-between items-center text-[13px]">
+                  <span class="font-semibold text-slate-500">{{ __('wallets') }}</span>
+                  <span class="text-slate-900 font-bold tabular-nums">{{ stats.wallets }}</span>
+                </div>
+                <div class="flex justify-between items-center text-[13px]">
+                  <span class="font-semibold text-slate-500">{{ __('budgets') }}</span>
+                  <span class="text-slate-900 font-bold tabular-nums">{{ stats.budgets }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+ 
+            <!-- Main Content Area -->
+            <div class="flex-1 w-full min-w-0">
+                <Transition 
+                    enter-active-class="transition duration-400 ease-out" 
+                    enter-from-class="opacity-0 translate-y-4" 
+                    enter-to-class="opacity-100 translate-y-0"
+                    leave-active-class="transition duration-200 ease-in" 
+                    leave-from-class="opacity-100 scale-100" 
+                    leave-to-class="opacity-0 scale-95"
+                    mode="out-in"
+                >
+                    <div :key="activeTab">
+                        <ProfileTab v-if="activeTab === 'profile'" :user="user" />
+                        <PreferencesTab v-if="activeTab === 'preferences'" :user="user" />
+                        <DataTab v-if="activeTab === 'data'" />
+                    </div>
+                </Transition>
             </div>
         </div>
-    </Layout>
-</template>
+        </Layout>
+    </template>

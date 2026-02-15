@@ -96,9 +96,10 @@ class BudgetService
     /**
      * Generate budget recommendations based on last 3 months of spending.
      */
-    public function getRecommendations()
+    public function getRecommendations(?string $targetMonth = null)
     {
         $threeMonthsAgo = Carbon::now()->subMonths(3)->startOfMonth();
+        $targetMonth = $targetMonth ?? Carbon::now()->format('Y-m');
 
         // Get average spending per category in the last 3 months
         $avgSpending = Transaction::where('user_id', auth()->id())
@@ -112,9 +113,9 @@ class BudgetService
             ->having('avg_total', '>', 0)
             ->get();
 
-        // Get current month's budgets to avoid suggesting categories that already have a budget
+        // Get target month's budgets to avoid suggesting categories that already have a budget
         $currentBudgets = Budget::where('user_id', auth()->id())
-            ->where('month', Carbon::now()->format('Y-m'))
+            ->where('month', $targetMonth)
             ->pluck('category_id')
             ->toArray();
 
@@ -129,7 +130,7 @@ class BudgetService
                     'category' => $item->category->name, // Return name for display
                     'avg_spending' => (float) $item->avg_total,
                     'recommended_limit' => (float) $recommendedLimit,
-                    'reason' => "Based on your avg spending of " . number_format($item->avg_total) . " in the last 3 months."
+                    'reason' => __('based_on_avg_spending', ['amount' => number_format($item->avg_total)])
                 ];
             })
             ->values();

@@ -78,7 +78,14 @@ class DashboardService
             'wallets' => $walletDistribution,
             'categories' => $categoryBreakdown,
             'recent_transactions' => $recentTransactions,
-            'available_months' => $availableMonths
+            'available_months' => $availableMonths,
+            'subscription' => [
+                'is_premium' => (bool) (auth()->user()?->is_premium),
+                'plan_id' => auth()->user()?->current_plan_id ?? 1,
+                'plan_name' => auth()->user()?->current_plan_name ?? 'Starter',
+                'subscription_until' => auth()->user()?->subscription_until ? auth()->user()->subscription_until->format('d M Y') : (auth()->user()?->is_premium ? 'Lifetime' : null),
+                'days_remaining' => auth()->user()?->days_remaining ?? 0,
+            ],
         ];
     }
 
@@ -185,13 +192,7 @@ class DashboardService
             ->whereBetween('date', [$startOfMonth, $endOfMonth])
             ->orderBy('date', 'desc')
             ->limit(5)
-            ->get()
-            ->map(function ($tx) {
-                $data = $tx->toArray();
-                $data['category_color'] = $tx->category ? $tx->category->color : 'bg-gray-500';
-                $data['category'] = $tx->category ? $tx->category->name : 'Unknown';
-                return $data;
-            });
+            ->get();
     }
 
     private function getCategoryBreakdown($userId, $startOfMonth, $endOfMonth)
@@ -207,10 +208,12 @@ class DashboardService
             ->limit(5)
             ->get()
             ->map(function ($item) {
-                $data = $item->toArray();
-                $data['category'] = $item->category ? $item->category->name : 'Unknown';
-                $data['color'] = $item->category ? $item->category->color : 'bg-gray-500';
-                return $data;
+                return [
+                    'category_id' => $item->category_id,
+                    'total' => $item->total,
+                    'category' => $item->category ? $item->category->name : 'Unknown',
+                    'color' => $item->category ? $item->category->color : 'bg-gray-500'
+                ];
             });
     }
 

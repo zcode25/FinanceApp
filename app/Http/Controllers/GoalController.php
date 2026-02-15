@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Goal;
+use App\Models\Wallet;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class GoalController extends Controller
+{
+    public function index()
+    {
+        $goals = Goal::with('wallets')
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->get()
+            ->map(function (\App\Models\Goal $goal) {
+                $currentAmount = $goal->wallets->sum('balance');
+
+                return array_merge($goal->toArray(), [
+                    'current_amount' => $currentAmount,
+                ]);
+            });
+
+        $wallets = Wallet::where('user_id', auth()->id())
+            ->where('is_active', true)
+            ->get();
+
+        return Inertia::render('goals/index', [
+            'goals' => $goals,
+            'wallets' => $wallets,
+            'currentExchangeRate' => app(\App\Services\ExchangeRateService::class)->getCurrentRate('USD', 'IDR'),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'target_amount' => 'required|numeric|min:0',
+            'type' => 'required|in:emergency,retirement,saving,custom',
+            'target_date' => 'nullable|date|after_or_equal:start_date',
+            'start_date' => 'required|date',
+            'notes' => 'nullable|string',
+            'currency' => 'required|string|size:3',
+            'wallet_ids' => 'required|array|min:1',
+            'wallet_ids.*' => 'exists:wallets,id',
+        ], [
+            'name.required' => __('goal_name_required'),
+            'target_amount.required' => __('target_amount_required'),
+            'target_amount.numeric' => __('target_amount_numeric'),
+            'target_amount.min' => __('target_amount_min'),
+            'type.required' => __('type_required'),
+            'target_date.date' => __('date_invalid'),
+            'target_date.after_or_equal' => __('target_date_after_start'),
+            'start_date.required' => __('start_date_required'),
+            'wallet_ids.required' => __('wallet_allocation_required'),
+            'wallet_ids.min' => __('wallet_allocation_required'),
+        ]);
+
+        $user = auth()->user();
+        $goalCount = Goal::where('user_id', $user->id)->count();
+
+        if (!$user->is_premium && $goalCount >= 1) {
+            return redirect()->back()->withErrors([
+                'premium' => 'You have reached the limit of 1 financial goal. Upgrade to Professional to add unlimited goals.'
+            ]);
+        }
+
+        $validated['user_id'] = auth()->id();
+
+        $goal = Goal::create($validated);
+        $goal->wallets()->attach($request->wallet_ids);
+
+        return redirect()->back()->with('message', 'Goal created successfully');
+    }
+
+    public function update(Request $request, Goal $goal)
+    {
+        if ($goal->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'target_amount' => 'required|numeric|min:0',
+            'type' => 'required|in:emergency,retirement,saving,custom',
+            'target_date' => 'nullable|date',
+            'start_date' => 'required|date',
+            'notes' => 'nullable|string',
+            'currency' => 'required|string|size:3',
+            'wallet_ids' => 'required|array',
+            'wallet_ids.*' => 'exists:wallets,id',
+        ]);
+
+        $goal->update($validated);
+        $goal->wallets()->sync($request->wallet_ids);
+
+        return redirect()->back()->with('message', 'Goal updated successfully');
+    }
+
+    public function destroy(Goal $goal)
+    {
+        if ($goal->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $goal->delete();
+
+        return redirect()->back()->with('message', 'Goal deleted successfully');
+    }
+}

@@ -123,7 +123,7 @@ watch(() => props.currency, () => {
             :value="displayValue" 
             @input="onInput"
             @blur="onBlur"
-            class="w-full input-premium px-4 py-3 font-mono font-medium placeholder:font-sans transition-all duration-200"
+            class="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all px-4 py-3 font-semibold text-sm"
             :class="{ 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20': errorMessage }"
             :placeholder="placeholder || 'Rp 0'"
         >
@@ -135,8 +135,8 @@ watch(() => props.currency, () => {
             leave-from-class="opacity-100 translate-y-0"
             leave-to-class="opacity-0 -translate-y-1"
         >
-            <div v-if="errorMessage" class="absolute -bottom-6 left-0 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded flex items-center gap-1.5">
-                <span class="w-1 h-1 rounded-full bg-rose-500 inline-block"></span>
+            <div v-if="errorMessage" class="absolute -bottom-7 left-0 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
                 {{ errorMessage }}
             </div>
         </transition>

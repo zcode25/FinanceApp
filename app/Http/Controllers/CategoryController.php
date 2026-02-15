@@ -27,13 +27,26 @@ class CategoryController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:income,expense',
             'color' => 'required|string|max:50',
+        ], [
+            'name.required' => __('category_name_required'),
+            'type.required' => __('type_required'),
+            'color.required' => __('color_required'),
         ]);
+
+        $user = Auth::user();
+        $customCategoryCount = Category::where('user_id', $user->id)->count();
+
+        if (!$user->is_premium && $customCategoryCount >= 3) {
+            return redirect()->back()->withErrors([
+                'premium' => 'You have reached the limit of 3 custom categories. Upgrade to Professional to add unlimited categories.'
+            ]);
+        }
 
         Category::create([
             'name' => $request->name,
             'type' => $request->type,
             'color' => $request->color,
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'is_active' => true
         ]);
 
@@ -42,19 +55,21 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
-        // Ensure user owns this category or it's a system category?
-        // Proposal says: Only allow updates for categories owned by user.
-
         if ($category->user_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'type' => 'required|in:income,expense',
             'color' => 'required|string|max:50',
+        ], [
+            'name.required' => __('category_name_required'),
+            'type.required' => __('type_required'),
+            'color.required' => __('color_required'),
         ]);
 
-        $category->update($request->only('name', 'color'));
+        $category->update($request->only('name', 'type', 'color'));
 
         return redirect()->back();
     }

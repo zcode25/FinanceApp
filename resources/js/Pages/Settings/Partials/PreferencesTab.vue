@@ -24,45 +24,45 @@ import { Globe } from 'lucide-vue-next';
     </script>
     
     <template>
-        <div class="glass-card p-8 border-indigo-500/20 relative overflow-hidden max-w-2xl">
-            <div class="flex items-center gap-4 mb-8">
-                <div class="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400">
+        <div class="w-full bg-white rounded-3xl p-6 md:p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div class="flex items-center gap-6 mb-10">
+                <div class="p-3.5 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-sm">
                     <Globe class="w-6 h-6" />
                 </div>
                 <div>
-                     <h3 class="text-lg font-bold text-white">{{ __('app_preferences_title') }}</h3>
-                     <p class="text-sm text-gray-400">{{ __('app_preferences_desc') }}</p>
+                     <h3 class="text-xl font-bold text-slate-900 leading-none mb-1.5">{{ __('language') }}</h3>
+                     <p class="text-sm font-semibold text-slate-400">{{ __('app_preferences_desc') }}</p>
                 </div>
             </div>
     
-            <form @submit.prevent="updatePreferences" class="space-y-6">
+            <form @submit.prevent="updatePreferences" class="space-y-8">
                 <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-2">{{ __('language') }}</label>
-                    <div class="grid grid-cols-2 gap-4">
+                    <label class="block text-xs font-bold text-slate-700 mb-4 ml-1">{{ __('language') }}</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                         <button 
                             type="button"
                             @click="form.locale = 'en'"
-                            class="p-4 rounded-xl border transition-all flex items-center justify-center gap-2"
-                            :class="form.locale === 'en' ? 'bg-indigo-500/20 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'"
+                            class="p-5 md:p-6 rounded-2xl border transition-all flex items-center md:flex-col justify-start md:justify-center gap-4 md:gap-3 group/lang"
+                            :class="form.locale === 'en' ? 'bg-white border-indigo-200 shadow-xl shadow-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-white hover:border-slate-200'"
                         >
-                            <span class="text-2xl">🇺🇸</span>
-                            <span class="font-bold">English</span>
+                            <span class="text-2xl md:text-3xl transition-transform group-hover/lang:scale-110">🇺🇸</span>
+                            <span class="font-bold text-sm tracking-tight text-inherit">{{ __('english_us') }}</span>
                         </button>
                         <button 
                             type="button"
                             @click="form.locale = 'id'"
-                            class="p-4 rounded-xl border transition-all flex items-center justify-center gap-2"
-                            :class="form.locale === 'id' ? 'bg-indigo-500/20 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'"
+                            class="p-5 md:p-6 rounded-2xl border transition-all flex items-center md:flex-col justify-start md:justify-center gap-4 md:gap-3 group/lang"
+                            :class="form.locale === 'id' ? 'bg-white border-indigo-200 shadow-xl shadow-indigo-100 text-indigo-700' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-white hover:border-slate-200'"
                         >
-                            <span class="text-2xl">🇮🇩</span>
-                            <span class="font-bold">Indonesia</span>
+                            <span class="text-2xl md:text-3xl transition-transform group-hover/lang:scale-110">🇮🇩</span>
+                            <span class="font-bold text-sm tracking-tight text-inherit">{{ __('bahasa_indonesia') }}</span>
                         </button>
                     </div>
                 </div>
     
-                <div class="pt-4 border-t border-white/5 flex justify-end">
-                    <button type="submit" :disabled="form.processing" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {{ form.processing ? __('saving') : __('save_preferences') }}
+                <div class="pt-8 border-t border-slate-50 flex justify-end">
+                    <button type="submit" :disabled="form.processing" class="w-full md:w-auto px-8 py-3.5 bg-indigo-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 disabled:opacity-50">
+                        {{ form.processing ? __('saving') : __('save_changes') }}
                     </button>
                 </div>
             </form>

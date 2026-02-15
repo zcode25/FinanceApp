@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
-import { LayoutDashboard, Wallet, PieChart, Banknote, Settings, Menu, X, Bell, User, ChevronDown, FileText, Tag, LogOut } from 'lucide-vue-next';
+import { LayoutDashboard, Wallet, PieChart, Banknote, Settings, Menu, X, User, ChevronDown, FileText, Tag, LogOut, TrendingUp, Target, BadgeCheck, Crown, ShieldAlert, Sparkles, Rocket, Zap } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
 
 const page = usePage();
@@ -9,15 +9,45 @@ const __ = (key) => page.props.translations?.[key] || key;
 const user = computed(() => page.props.auth.user);
 
 const isSidebarOpen = ref(false);
+const isProfileOpen = ref(false);
+
+const planIcon = computed(() => {
+  if (!user.value?.is_premium) return Crown;
+  switch (user.value.current_plan_id) {
+    case 2: return Rocket;
+    case 3: return Crown;
+    case 4: return Zap;
+    default: return Crown;
+  }
+});
+
+const planColor = computed(() => {
+  if (!user.value?.is_premium) return 'bg-slate-50 text-slate-400 border-slate-100';
+  switch (user.value.current_plan_id) {
+    case 2: return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+    case 3: return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    case 4: return 'bg-purple-50 text-purple-600 border-purple-100';
+    default: return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+  }
+});
 
 const navigation = computed(() => [
-  { name: __('dashboard'), href: '/', icon: LayoutDashboard },
+  { name: __('dashboard'), href: '/dashboard', icon: LayoutDashboard },
   { name: __('transactions'), href: '/transactions', icon: Banknote },
   { name: __('wallets'), href: '/wallets', icon: Wallet },
   { name: __('analysis'), href: '/analysis', icon: PieChart },
   { name: __('budget'), href: '/budget', icon: Banknote },
+  { name: __('goals'), href: '/goals', icon: Target },
   { name: __('categories'), href: '/categories', icon: Tag },
+  { name: __('tracker'), href: '/tracker', icon: TrendingUp },
   { name: __('reports'), href: '/reports', icon: FileText },
+  { name: __('subscription'), href: '/subscription', icon: Crown },
+]);
+
+const bottomNavItems = computed(() => [
+  { name: __('home'), href: '/dashboard', icon: LayoutDashboard },
+  { name: __('transactions'), href: '/transactions', icon: Banknote },
+  { name: __('analysis'), href: '/analysis', icon: PieChart }
 ]);
 
 const isCollapsed = ref(false); // Desktop state
@@ -28,141 +58,195 @@ const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
 const logout = () => {
     router.post(route('logout'));
 };
+
+const restartTour = () => {
+    localStorage.removeItem('tour_state');
+    isProfileOpen.value = false;
+    router.visit('/dashboard?restart_tour=true');
+};
+
+// Custom directive to handle clicks outside of an element
+const vClickOutside = {
+  mounted(el, binding) {
+    el.clickOutsideEvent = (event) => {
+      if (!(el === event.target || el.contains(event.target))) {
+        binding.value(event);
+      }
+    };
+    document.addEventListener('click', el.clickOutsideEvent);
+  },
+  unmounted(el) {
+    document.removeEventListener('click', el.clickOutsideEvent);
+  },
+};
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-900 text-white font-sans flex relative overflow-hidden">
-    <!-- Mobile Menu Button Removed (Moved to Navbar) -->
-
-
-    <!-- Sidebar -->
-    <aside 
-      :class="[
-        'fixed inset-y-0 left-0 z-40 bg-gray-900/80 backdrop-blur-xl border-r border-white/5 transition-all duration-300',
-        // Mobile: Off-canvas toggle
-        isSidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64',
-        // Desktop: Fixed and Collapsible
-        'md:translate-x-0 md:fixed',
-        isCollapsed ? 'md:w-20' : 'md:w-64'
-      ]"
-    >
-      <div class="h-full flex flex-col">
-        <div class="p-6 flex items-center justify-between gap-3 relative">
-            <div class="flex items-center gap-3 overflow-hidden whitespace-nowrap">
-                <div class="min-w-8 w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shrink-0">
-                    <span class="font-bold text-white">F</span>
-                </div>
-                <span 
-                    class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 transition-opacity duration-300"
-                    :class="isCollapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
-                >
-                FinanceApp
-                </span>
+  <div class="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col relative overflow-x-hidden">
+    
+    <!-- Top Utility Navbar -->
+    <header class="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-slate-100 px-6 py-4">
+      <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-8">
+        <!-- Logo & Account Selector -->
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-2">
+            <div class="flex items-center justify-center transition-all hover:scale-110">
+              <img src="/img/logo_vibefinance.png" class="h-7 w-auto object-contain" alt="VibeFinance Logo">
             </div>
-            
-            <!-- Desktop Collapse Toggle -->
-            <!-- Desktop Collapse Toggle Removed -->
-
+            <div class="flex flex-col leading-tight">
+              <span class="text-xl tracking-tight text-slate-900" style="font-family: 'Outfit', sans-serif;">
+                <span class="font-semibold">Vibe</span><span class="font-light text-indigo-600">Finance</span>
+              </span>
+              <span class="text-[9px] font-medium text-slate-400">Powered by terasweb.id</span>
+            </div>
+          </div>
         </div>
 
-        <nav class="mt-4 px-3 space-y-2 flex-1">
-            <Link 
-            v-for="item in navigation" 
-            :key="item.name" 
-            :href="item.href"
-            :class="[
-                'flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative',
-                $page.url === item.href 
-                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' 
-                : 'text-gray-400 hover:bg-white/5 hover:text-white',
-                isCollapsed ? 'justify-center' : ''
-            ]"
-            :title="isCollapsed ? item.name : ''"
-            >
-            <component :is="item.icon" class="w-5 h-5 transition-colors shrink-0" />
-            <span 
-                class="font-medium whitespace-nowrap transition-all duration-300 overflow-hidden"
-                :class="isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'"
-            >
-                {{ item.name }}
-            </span>
-            </Link>
-        </nav>
 
-        <div class="p-4 border-t border-white/5">
-                <Link 
-                    href="/settings" 
-                    class="flex items-center gap-3 px-3 py-3 text-gray-400 hover:text-white transition-colors rounded-xl hover:bg-white/5"
-                    :class="isCollapsed ? 'justify-center' : ''"
-                    :title="isCollapsed ? __('settings') : ''"
-                >
-                    <Settings class="w-5 h-5 shrink-0" />
-                    <span 
-                        class="whitespace-nowrap transition-all duration-300 overflow-hidden" 
-                        :class="isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'"
-                    >
-                        {{ __('settings') }}
-                    </span>
-                </Link>
+        <!-- Right Utilities -->
+        <div class="flex items-center gap-4">
+          <div class="w-px h-6 bg-slate-100 mx-2 hidden sm:block"></div>
+          
+          <div class="relative">
+            <div 
+              @click.stop="isProfileOpen = !isProfileOpen"
+              class="flex items-center gap-3 pl-2 group cursor-pointer"
+            >
+              <div class="text-right hidden lg:block">
+                <div class="flex items-center justify-end gap-1.5 pb-0.5">
+                  <p class="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ user?.name || __('user') }}</p>
+                  <div v-if="user?.is_premium" :class="[planColor, 'w-6 h-6 rounded-lg flex items-center justify-center border shadow-sm']">
+                    <component :is="planIcon" class="w-3.5 h-3.5 fill-current opacity-80" />
+                  </div>
+                </div>
+                <div class="flex items-center justify-end gap-1">
+                  <BadgeCheck v-if="user?.email_verified_at" class="w-2.5 h-2.5 text-emerald-500 fill-emerald-50" />
+                  <p class="text-[10px] font-semibold text-slate-400">{{ user?.email }}</p>
+                </div>
+              </div>
+              <div class="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-transparent group-hover:ring-indigo-100 transition-all shadow-sm">
+                <img v-if="user?.avatar" :src="`/storage/${user.avatar}`" class="w-full h-full object-cover" :alt="user.name">
+                <div v-else class="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                  {{ user?.name ? user.name.charAt(0).toUpperCase() : 'U' }}
+                </div>
+              </div>
+              <ChevronDown 
+                class="w-4 h-4 text-slate-400 transition-transform duration-200" 
+                :class="{ 'rotate-180': isProfileOpen }"
+              />
+            </div>
+
+            <!-- Profile Dropdown -->
+            <div 
+              v-if="isProfileOpen"
+              v-click-outside="() => isProfileOpen = false"
+              class="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-[60] animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <div class="px-4 py-3 border-b border-slate-50 mb-2">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <p class="text-sm font-bold text-slate-900 leading-none">{{ user?.name }}</p>
+                  <div v-if="user?.is_premium" :class="[planColor, 'w-5 h-5 rounded-md flex items-center justify-center border shadow-sm']">
+                    <component :is="planIcon" class="w-3 h-3 fill-current opacity-80" />
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 min-w-0">
+                  <BadgeCheck v-if="user?.email_verified_at" class="w-3 h-3 text-emerald-500 fill-emerald-50 shrink-0" />
+                  <p class="text-xs font-medium text-slate-400 truncate">{{ user?.email }}</p>
+                </div>
+              </div>
+              
+              <Link 
+                :href="route('settings.index')" 
+                class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                @click="isProfileOpen = false"
+              >
+                <Settings class="w-4 h-4" />
+                <span>{{ __('settings') }}</span>
+              </Link>
+              
+              <button 
+                @click="restartTour"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all text-left"
+              >
+                <Sparkles class="w-4 h-4" />
+                <span>{{ __('restart_product_tour') }}</span>
+              </button>
+
+              <div class="my-2 border-t border-slate-50"></div>
+              
+              <button 
+                @click="logout"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 transition-all"
+              >
+                <LogOut class="w-4 h-4" />
+                <span>{{ __('logout') }}</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </aside>
+    </header>
+    
+    <!-- Email Verification Banner (Soft Gate) -->
+    <div v-if="user && !user.email_verified_at" class="bg-slate-900 border-b border-white/10 px-6 py-2.5 animate-in slide-in-from-top duration-500 relative z-[45]">
+      <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/10">
+            <ShieldAlert class="w-5 h-5 text-amber-400" />
+          </div>
+          <div class="space-y-0.5">
+            <p class="text-xs font-bold text-white leading-none">{{ __('security_check_required') }}</p>
+            <p class="text-[10px] font-medium text-slate-400">{{ __('verify_email_desc') }}</p>
+          </div>
+        </div>
+        <Link 
+          :href="route('verification.notice')" 
+          class="px-5 py-2 bg-white hover:bg-slate-50 text-slate-900 text-[10px] font-bold rounded-xl transition-all active:scale-95 shadow-lg shadow-black/20"
+        >
+          {{ __('verify_now') }}
+        </Link>
+      </div>
+    </div>
+
+    <!-- Sub-navigation Tabs (Desktop Only) -->
+    <nav class="hidden lg:flex bg-white/70 backdrop-blur-xl border-b border-slate-100 px-6 sticky top-[73px] z-40 overflow-x-auto no-scrollbar">
+      <div class="max-w-[1600px] w-full mx-auto flex items-center gap-8 pl-0">
+        <Link 
+          v-for="item in navigation" 
+          :key="item.name" 
+          :href="item.href"
+          :id="`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`"
+          class="relative py-4 text-sm font-semibold transition-all whitespace-nowrap"
+          :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'"
+        >
+          {{ item.name }}
+          <div v-if="$page.url.split('?')[0] === item.href" class="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full"></div>
+        </Link>
+      </div>
+    </nav>
 
     <!-- Main Content -->
-    <main 
-        class="flex-1 bg-gradient-to-br from-gray-900 to-gray-800 relative z-0 min-h-screen transition-all duration-300 flex flex-col"
-        :class="isCollapsed ? 'md:ml-20' : 'md:ml-64'"
-    >
-      <!-- Background Glow Effects -->
-      <div class="absolute top-0 left-0 w-full h-96 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none -translate-y-1/2"></div>
-      
-      <!-- Top Navbar -->
-      <header class="sticky top-0 z-30 px-4 py-3 md:px-6 md:py-4 flex items-center justify-between glass-header border-b border-white/5 bg-gray-900/50 backdrop-blur-lg">
-          <div class="flex items-center gap-4">
-              <!-- Mobile Menu Button (Moved here) -->
-              <button @click="toggleSidebar" class="md:hidden p-2 bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors">
-                  <Menu v-if="!isSidebarOpen" class="w-6 h-6" />
-                  <X v-else class="w-6 h-6" />
-              </button>
-              
-              <!-- Desktop Collapse Toggle -->
-              <button @click="toggleCollapse" class="hidden md:block p-2 text-gray-400 hover:text-white transition-colors">
-                  <Menu class="w-6 h-6" />
-              </button>
-              
-              <!-- Optional Breadcrumb or Page Title Placeholder -->
-              <h2 class="text-sm font-medium text-gray-400 hidden sm:block">{{ __('welcome_back') }}, {{ user?.name || 'User' }}!</h2>
-          </div>
-
-          <div class="flex items-center gap-4">
-              <!-- User Profile -->
-              <div class="flex items-center gap-3 pl-4 ">
-                  <div class="text-right hidden sm:block">
-                      <p class="text-sm font-bold text-white leading-none">{{ user?.name || 'Guest' }}</p>
-                      <button @click="logout" class="text-xs text-rose-400 mt-1 hover:text-rose-300 transition-colors flex items-center justify-end gap-1">
-                          {{ __('logout') }} <LogOut class="w-3 h-3" />
-                      </button>
-                  </div>
-                  <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-800 ring-2 ring-white/10 hover:ring-indigo-500 transition-all cursor-pointer">
-                      <img v-if="user?.avatar" :src="`/storage/${user.avatar}`" class="w-full h-full object-cover" :alt="user.name">
-                      <div v-else class="w-full h-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                          {{ user?.name ? user.name.charAt(0).toUpperCase() : 'G' }}
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </header>
-
-      <div class="container mx-auto px-4 py-8 md:p-10 relative z-10">
-        <slot />
-      </div>
+    <main class="flex-1 max-w-[1600px] mx-auto w-full px-4 lg:px-6 py-8 relative z-10">
+      <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-50 rounded-full blur-[100px] pointer-events-none opacity-50"></div>
+      <slot />
     </main>
 
-    <!-- Mobile Overlay -->
-    <div 
-        v-if="isSidebarOpen" 
-        @click="isSidebarOpen = false"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden"
-    ></div>
+    <!-- FIXED BOTTOM NAVIGATION (MOBILE ONLY) -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-6 py-4 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] rounded-t-[2.5rem]">
+      <nav class="flex items-center justify-around">
+        <Link 
+          v-for="item in bottomNavItems" 
+          :key="item.name" 
+          :href="item.href"
+          :id="`mobile-nav-${item.name.toLowerCase()}`"
+          class="flex flex-col items-center gap-1.5 transition-all active:scale-95"
+          :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400'"
+        >
+          <component :is="item.icon" class="w-6 h-6" :stroke-width="$page.url.split('?')[0] === item.href ? 2.5 : 2" />
+          <span class="text-[10px] font-bold tracking-tight">{{ item.name }}</span>
+        </Link>
+      </nav>
+    </div>
+
   </div>
 </template>

@@ -13,6 +13,10 @@ const props = defineProps({
     placeholder: {
         type: String,
         default: 'Select option...'
+    },
+    theme: {
+        type: String,
+        default: 'light' // 'light' or 'dark'
     }
 });
 
@@ -61,40 +65,45 @@ const selectOption = (opt) => {
              <input 
                 type="text" 
                 v-model="searchQuery" 
-                class="w-full input-premium px-4 py-3 pr-10 cursor-pointer"
-                :placeholder="(isOpen && !selectedLabel) ? 'Search...' : (selectedLabel ? '' : placeholder)"
+                class="w-full px-4 py-3 pr-10 cursor-pointer overflow-hidden truncate"
+                :class="[
+                    theme === 'dark' 
+                        ? 'bg-white/5 border-white/10 text-white placeholder-indigo-300/50 rounded-2xl border backdrop-blur-md focus:ring-0 focus:border-white/20 transition-all font-semibold text-sm' 
+                        : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm'
+                ]"
+                :placeholder="(isOpen && !selectedLabel) ? __('search_placeholder') : (selectedLabel ? '' : placeholder)"
                 @focus="isOpen = true"
             >
             <!-- Overlay to show selected value when not searching/focused -->
             <div v-if="selectedLabel && !searchQuery && !isOpen" class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <span class="text-white font-medium">{{ selectedLabel }}</span>
+                <span :class="[theme === 'dark' ? 'text-white' : 'text-slate-900', 'font-semibold text-sm']">{{ selectedLabel }}</span>
             </div>
-             <!-- Hide input placeholder text visually if value exists to avoid overlap, mainly hacky -->
+             <!-- Hide input placeholder text visually if value exists to avoid overlap -->
              <div v-if="selectedLabel && !searchQuery && !isOpen" class="absolute inset-0 bg-transparent" @click="isOpen = true; searchQuery = ''"></div>
 
             <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronsUpDown class="w-5 h-5 text-gray-400" />
+                <ChevronsUpDown :class="[theme === 'dark' ? 'text-indigo-400' : 'text-slate-400', 'w-5 h-5 transition-colors']" />
             </span>
         </div>
 
         <!-- Dropdown -->
         <div 
             v-if="isOpen" 
-            class="absolute z-[100] w-full mt-1 max-h-60 overflow-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 transform transition-all"
+            class="absolute z-[100] w-full mt-2 max-h-60 overflow-auto bg-white border border-slate-200 rounded-2xl shadow-3xl py-2 transform transition-all animate-in fade-in slide-in-from-top-2 duration-200"
         >
              <div 
                 v-for="option in filteredOptions" 
                 :key="option.value"
                 @click="selectOption(option)"
-                class="px-4 py-2 hover:bg-white/5 cursor-pointer flex items-center justify-between group"
-                :class="{'bg-indigo-500/10 text-indigo-400': modelValue === option.value}"
+                class="px-5 py-3 hover:bg-slate-50 cursor-pointer flex items-center justify-between group transition-colors"
+                :class="{'bg-indigo-50 text-indigo-600 font-semibold': modelValue === option.value, 'text-slate-900 font-medium': modelValue !== option.value}"
             >
-                <span>{{ option.label }}</span>
+                <span class="text-sm">{{ option.label }}</span>
                 <Check v-if="modelValue === option.value" class="w-4 h-4" />
             </div>
 
-            <div v-if="filteredOptions.length === 0" class="px-4 py-2 text-gray-500 text-sm">
-                No results found.
+            <div v-if="filteredOptions.length === 0" class="px-5 py-4 text-slate-400 text-xs font-semibold text-center">
+                {{ __('no_results_found') }}
             </div>
         </div>
         

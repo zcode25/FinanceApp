@@ -15,22 +15,39 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+        $isPremium = $user->is_premium;
         $reportService = app(ReportService::class);
 
         $month = $request->input('month', Carbon::now()->format('Y-m'));
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
-        // Pass available months for dropdown
-        // Pass available months (raw Y-m) so frontend can localize
-        $availableMonths = Transaction::selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
+        // Enforce 3-month lookback limit for Starter users
+        if (!$isPremium) {
+            $threeMonthsAgo = Carbon::now()->subMonths(3)->startOfMonth();
+            if ($startDate->lt($threeMonthsAgo)) {
+                $month = Carbon::now()->format('Y-m');
+                $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+                $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+            }
+        }
+
+        // Pass available months for dropdown (filtered by current user)
+        $availableMonths = Transaction::where('user_id', $user->id)
+            ->where('is_active', true)
+            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
             ->distinct()
             ->orderBy('month_value', 'desc')
             ->pluck('month_value');
 
+        // Fallback to current month if no transactions
+        if ($availableMonths->isEmpty()) {
+            $availableMonths = collect([Carbon::now()->format('Y-m')]);
+        }
+
         $reports = $reportService->getDetailedWalletReports($startDate, $endDate);
 
-        // Calculate Global Totals for Summary if needed (optional, or computed in frontend)
         $totals = [
             'total_income' => collect($reports)->sum(fn($r) => $r['summary']['income']),
             'total_expense' => collect($reports)->sum(fn($r) => $r['summary']['expense']),
@@ -42,15 +59,19 @@ class ReportController extends Controller
             'totals' => $totals,
             'filters' => ['month' => $month],
             'availableMonths' => $availableMonths,
+            'is_premium' => $isPremium
         ]);
     }
 
     public function exportPdf(Request $request)
     {
+        if (!auth()->user()->is_premium) {
+            return response()->json(['error' => 'Upgrade to Professional to export reports.'], 403);
+        }
+
         $reportService = app(ReportService::class);
         $month = $request->input('month', Carbon::now()->format('Y-m'));
 
-        // Set App Locale based on user preference
         $locale = $request->user()->locale ?? 'en';
         app()->setLocale($locale);
 
@@ -65,13 +86,16 @@ class ReportController extends Controller
             'generated_at' => Carbon::now()->locale($locale)->isoFormat('D MMM Y HH:mm'),
         ];
 
-        // Ensure view exists later
         $pdf = Pdf::loadView('exports.statement_pdf', $data);
         return $pdf->stream('Statement_' . $month . '.pdf');
     }
 
     public function exportExcel(Request $request)
     {
+        if (!auth()->user()->is_premium) {
+            return response()->json(['error' => 'Upgrade to Professional to export reports.'], 403);
+        }
+
         $reportService = app(ReportService::class);
         $month = $request->input('month', Carbon::now()->format('Y-m'));
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();

@@ -17,7 +17,7 @@ class SetLocale
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $locale = $request->user()?->locale ?? env('APP_LOCALE', 'en');
+        $locale = $request->session()->get('locale') ?? $request->user()?->locale ?? config('app.locale', 'en');
 
         App::setLocale($locale);
         Carbon::setLocale($locale);

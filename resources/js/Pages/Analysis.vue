@@ -67,14 +67,14 @@ const formatCurrency = (value) => {
             <!-- HEADER & CONTROLS -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 class="text-3xl font-black text-white tracking-tight">Financial Analysis</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold text-white">Financial Analysis</h1>
                     <p class="text-gray-400">Deep dive into your cash flow and spending habits.</p>
                 </div>
 
                 <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-2xl border border-white/10 backdrop-blur-md">
                     <div class="flex items-center gap-2 px-3">
                         <Filter class="w-4 h-4 text-indigo-400" />
-                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">Date Range</span>
+                        <span class="text-xs font-semibold text-gray-500">Date Range</span>
                     </div>
                     
                     <div class="h-8 w-px bg-white/10"></div>
@@ -108,7 +108,7 @@ const formatCurrency = (value) => {
                             <PieChart class="w-6 h-6" />
                         </div>
                         <div>
-                            <h3 class="text-lg font-black text-white tracking-tight uppercase">Category Breakdown</h3>
+                            <h3 class="text-lg font-bold text-white">Category Breakdown</h3>
                             <p class="text-xs text-gray-400">Where your money went</p>
                         </div>
                     </div>
@@ -117,7 +117,7 @@ const formatCurrency = (value) => {
                         <div v-for="(cat, index) in categorySpending" :key="index" class="relative group">
                             <div class="flex items-center justify-between mb-2 relative z-10">
                                 <span class="text-sm font-bold text-gray-300">{{ cat.category }}</span>
-                                <span class="text-sm font-black text-white">{{ formatCurrency(cat.total) }}</span>
+                                <span class="text-sm font-bold text-white">{{ formatCurrency(cat.total) }}</span>
                             </div>
                             <div class="h-2 w-full bg-gray-800 rounded-full overflow-hidden">
                                 <div 
@@ -136,17 +136,15 @@ const formatCurrency = (value) => {
                 <!-- SUMMARY CARD -->
                 <div class="glass-card p-6 md:p-8 border-emerald-500/10 flex flex-col justify-center gap-6">
                     <div>
-                        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Income</p>
-                        <h4 class="text-3xl font-black text-emerald-400">{{ formatCurrency(summary.total_income) }}</h4>
+                        <h4 class="text-2xl md:text-3xl font-bold text-emerald-400">{{ formatCurrency(summary.total_income) }}</h4>
                     </div>
                     <div>
-                        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Total Expense</p>
-                        <h4 class="text-3xl font-black text-rose-400">{{ formatCurrency(summary.total_expense) }}</h4>
+                        <h4 class="text-2xl md:text-3xl font-bold text-rose-400">{{ formatCurrency(summary.total_expense) }}</h4>
                     </div>
                     <div class="pt-6 border-t border-white/10">
-                        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Net Savings</p>
+                        <p class="text-xs font-semibold text-gray-500 mb-1">Net Savings</p>
                         <div class="flex items-center gap-2">
-                            <h4 :class="['text-4xl font-black tracking-tighter', summary.net_savings >= 0 ? 'text-white' : 'text-rose-500']">
+                            <h4 :class="['text-3xl md:text-4xl font-bold', summary.net_savings >= 0 ? 'text-white' : 'text-rose-500']">
                                 {{ formatCurrency(summary.net_savings) }}
                             </h4>
                         </div>

@@ -54,8 +54,11 @@ class ReportService
                 }
 
                 $data = $tx->toArray();
-                // Flatten category to string name for display compatibility
-                $data['category'] = $tx->category ? $tx->category->name : 'Uncategorized';
+                // Return category as array with name and color for UI display
+                $data['category'] = [
+                    'name' => $tx->category ? $tx->category->name : 'Uncategorized',
+                    'color' => $tx->category ? $tx->category->color : 'bg-slate-500'
+                ];
                 $data['running_balance'] = $runningBalance;
 
                 return $data;

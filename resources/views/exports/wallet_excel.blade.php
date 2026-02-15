@@ -48,14 +48,15 @@
             <td colspan="4" style="font-style: italic; border: 1px solid #000000;">Brought forward from previous period
             </td>
             <td style="text-align: right; font-weight: bold; border: 1px solid #000000;">
-                {{ $summary['opening_balance'] }}</td>
+                {{ $summary['opening_balance'] }}
+            </td>
         </tr>
 
         @foreach($transactions as $tx)
             <tr>
                 <td style="border: 1px solid #000000;">{{ \Carbon\Carbon::parse($tx['date'])->format('d M Y') }}</td>
                 <td style="border: 1px solid #000000;">{{ $tx['description'] }}</td>
-                <td style="border: 1px solid #000000;">{{ $tx['category'] }}</td>
+                <td style="border: 1px solid #000000;">{{ $tx['category']['name'] }}</td>
                 <td style="border: 1px solid #000000;">{{ strtoupper($tx['type']) }}</td>
                 <td style="text-align: right; border: 1px solid #000000;">
                     {{ $tx['type'] === 'income' ? '+' : '-' }}{{ $tx['amount'] }}
@@ -70,7 +71,8 @@
             <td style="font-weight: bold; border: 1px solid #000000;">CLOSING</td>
             <td colspan="4" style="font-style: italic; border: 1px solid #000000;">Ending balance for this period</td>
             <td style="text-align: right; font-weight: bold; border: 1px solid #000000;">
-                {{ $summary['closing_balance'] }}</td>
+                {{ $summary['closing_balance'] }}
+            </td>
         </tr>
     </tbody>
 </table>

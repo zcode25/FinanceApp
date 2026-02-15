@@ -6,7 +6,8 @@
     <title>{{ __('monthly_financial_statement') }}</title>
     <style>
         @page {
-            margin: 100px 25px 60px 25px; /* Top Bottom margins for fixed header/footer */
+            margin: 100px 25px 60px 25px;
+            /* Top Bottom margins for fixed header/footer */
         }
 
         body {
@@ -14,12 +15,14 @@
             font-size: 10px;
             color: #333;
             line-height: 1.4;
-            margin: 0; /* Margins handled by @page */
+            margin: 0;
+            /* Margins handled by @page */
         }
 
         .header {
             position: fixed;
-            top: -70px; /* Position in top margin */
+            top: -70px;
+            /* Position in top margin */
             left: 0;
             right: 0;
             height: 60px;
@@ -34,7 +37,8 @@
         .header-left {
             text-align: left;
             vertical-align: bottom;
-            padding-bottom: 0px; /* Reduced padding since border is gone */
+            padding-bottom: 0px;
+            /* Reduced padding since border is gone */
         }
 
         .header-right {
@@ -47,7 +51,8 @@
             font-size: 20px;
             font-weight: bold;
             color: #111;
-            text-transform: uppercase;
+            font-weight: bold;
+            color: #111;
         }
 
         .meta-text {
@@ -92,7 +97,8 @@
         .wallet-currency {
             font-size: 11px;
             color: #666;
-            text-transform: uppercase;
+            font-size: 11px;
+            color: #666;
             letter-spacing: 0.5px;
         }
 
@@ -111,7 +117,8 @@
             display: block;
             font-size: 9px;
             color: #888;
-            text-transform: uppercase;
+            font-size: 9px;
+            color: #888;
             margin-bottom: 2px;
         }
 
@@ -145,7 +152,6 @@
             padding: 10px 8px;
             text-align: left;
             font-size: 9px;
-            text-transform: uppercase;
             color: #64748b;
             border-bottom: 2px solid #cbd5e1;
         }
@@ -198,7 +204,7 @@
         <table class="header-table">
             <tr>
                 <td class="header-left">
-                    <div class="brand-title">finance app</div>
+                    <div class="brand-title">VibeFinance</div>
                 </td>
                 <td class="header-right">
                     <div class="meta-text">{{ __('period_label') }} {{ $period }}</div>
@@ -228,8 +234,7 @@
                         </td>
                         <td>
                             <span class="summary-label">{{ __('expense') }}</span>
-                            <span
-                                class="summary-value text-red">-{{ number_format($report['summary']['expense'], 0) }}</span>
+                            <span class="summary-value">-{{ number_format($report['summary']['expense'], 0) }}</span>
                         </td>
                         <td>
                             <span class="summary-label">{{ __('closing_balance') }}</span>
@@ -244,9 +249,8 @@
                 <thead>
                     <tr>
                         <th width="15%">{{ __('date') }}</th>
-                        <th width="30%">{{ __('description') }}</th>
+                        <th width="40%">{{ __('description') }}</th>
                         <th width="15%">{{ __('category') }}</th>
-                        <th width="10%">{{ __('type') }}</th>
                         <th width="15%" class="text-right">{{ __('amount') }}</th>
                         <th width="15%" class="text-right">{{ __('balance') }}</th>
                     </tr>
@@ -254,8 +258,8 @@
                 <tbody>
                     <!-- Opening Balance -->
                     <tr class="row-opening">
-                        <td class="font-bold text-blue">{{ strtoupper(__('opening')) }}</td>
-                        <td colspan="4" class="italic">{{ __('brought_forward') }}</td>
+                        <td class="font-bold text-blue">{{ __('opening') }}</td>
+                        <td colspan="3" class="italic">{{ __('brought_forward') }}</td>
                         <td class="text-right font-bold text-blue">
                             {{ number_format($report['summary']['opening_balance'], 0) }}
                         </td>
@@ -267,18 +271,12 @@
                             <td>{{ $tx['description'] }}</td>
                             <td>
                                 <span
-                                    style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; font-size: 9px; text-transform: uppercase; font-weight: bold;">
-                                    {{ $tx['category'] }}
+                                    style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; font-size: 9px; font-weight: bold;">
+                                    {{ $tx['category']['name'] }}
                                 </span>
                             </td>
-                            <td>
-                                <span class="{{ $tx['type'] === 'income' ? 'text-green' : 'text-red' }}"
-                                    style="font-weight: bold; text-transform: uppercase; font-size: 9px;">
-                                    {{ $tx['type'] === 'income' ? 'IN' : 'OUT' }}
-                                </span>
-                            </td>
-                            <td class="text-right {{ $tx['type'] === 'income' ? 'text-green' : 'text-red' }}"
-                                style="font-weight: bold;">
+                            <td class="text-right"
+                                style="font-weight: bold; {{ $tx['type'] === 'income' ? 'color: #10b981;' : '' }}">
                                 {{ $tx['type'] === 'income' ? '+' : '-' }} {{ number_format($tx['amount'], 0) }}
                             </td>
                             <td class="text-right font-bold" style="color: #334155;">
@@ -287,15 +285,16 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">
-                                {{ __('no_results_desc') }}</td>
+                            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">
+                                {{ __('no_transactions_on_period') }}
+                            </td>
                         </tr>
                     @endforelse
 
                     <!-- Closing Balance -->
                     <tr class="row-closing">
-                        <td class="font-bold">{{ strtoupper(__('closing')) }}</td>
-                        <td colspan="4" class="italic">{{ __('ending_balance_period') }}</td>
+                        <td class="font-bold">{{ __('closing') }}</td>
+                        <td colspan="3" class="italic">{{ __('ending_balance_period') }}</td>
                         <td class="text-right font-bold">
                             {{ number_format($report['summary']['closing_balance'], 0) }}
                         </td>
@@ -306,7 +305,7 @@
     @endforeach
 
     <div class="footer">
-        Generated by FinanceApp &bull; {{ __('page') }} <span class="page-number"></span>
+        Generated by VibeFinance &bull; {{ __('page') }} <span class="page-number"></span>
     </div>
 </body>
 

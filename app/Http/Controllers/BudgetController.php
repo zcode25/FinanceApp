@@ -20,20 +20,29 @@ class BudgetController extends Controller
         return Inertia::render('Budget/Index', [
             'budgets' => $budgetService->getMonthlyBudgets($month), // Service needs update
             'summary' => $budgetService->getSummary($month), // Service needs update
-            'recommendations' => $budgetService->getRecommendations(), // Service needs update
+            'recommendations' => auth()->user()->is_premium ? $budgetService->getRecommendations($month) : [],
             'categories' => Category::forUser(auth()->id())->get(),
             'filters' => [
                 'month' => $month
-            ]
+            ],
+            'is_premium' => auth()->user()->is_premium,
+            'auto_setup_usage' => auth()->user()->auto_setup_usage,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id', // Validate foreign key
+            'category_id' => 'required|exists:categories,id',
             'limit' => 'required|numeric|min:0',
-            'month' => 'required|string', // YYYY-MM
+            'month' => 'required|string',
+        ], [
+            'category_id.required' => __('category_required'),
+            'category_id.exists' => __('category_invalid'),
+            'limit.required' => __('limit_required'),
+            'limit.numeric' => __('limit_numeric'),
+            'limit.min' => __('limit_min'),
+            'month.required' => __('month_required'),
         ]);
 
         Budget::updateOrCreate(
@@ -58,6 +67,13 @@ class BudgetController extends Controller
             'category_id' => 'required|exists:categories,id',
             'limit' => 'required|numeric|min:0',
             'month' => 'required|string',
+        ], [
+            'category_id.required' => __('category_required'),
+            'category_id.exists' => __('category_invalid'),
+            'limit.required' => __('limit_required'),
+            'limit.numeric' => __('limit_numeric'),
+            'limit.min' => __('limit_min'),
+            'month.required' => __('month_required'),
         ]);
 
         $budget->update([
@@ -85,7 +101,21 @@ class BudgetController extends Controller
             'month' => 'required|string',
             'goal' => 'required|string',
             'lifestyle' => 'required|string',
+        ], [
+            'estimated_income.required' => __('estimated_income_required'),
+            'estimated_income.numeric' => __('estimated_income_numeric'),
+            'estimated_income.min' => __('estimated_income_min'),
+            'month.required' => __('month_required'),
+            'goal.required' => __('goal_required'),
+            'lifestyle.required' => __('lifestyle_required'),
         ]);
+
+        $user = auth()->user();
+
+        // Gating logic: Must be premium OR have used 0 times (1x trial)
+        if (!$user->is_premium && $user->auto_setup_usage >= 1) {
+            return redirect()->back()->with('error', 'Trial limit reached. Please upgrade to Professional.');
+        }
 
         $budgetService = app(BudgetService::class);
         $plan = $budgetService->getAutoSetupPlan(
@@ -107,6 +137,9 @@ class BudgetController extends Controller
                 ]
             );
         }
+
+        // Increment usage count
+        $user->increment('auto_setup_usage');
 
         return redirect()->back();
     }
