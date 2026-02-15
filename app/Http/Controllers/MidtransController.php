@@ -72,6 +72,10 @@ class MidtransController extends Controller
         // Generate Unique Order ID (VIBE- prefix to avoid collision with other apps)
         $orderId = 'VIBE-SUB-' . time() . '-' . $user->id;
 
+        // Diagnostic: Log the notification URL to verify it's correct for hosting
+        $notificationUrl = route('midtrans.notification');
+        \Illuminate\Support\Facades\Log::info("Generating Snap Token. Notification URL: {$notificationUrl}");
+
         $params = [
             'transaction_details' => [
                 'order_id' => $orderId,
@@ -79,7 +83,7 @@ class MidtransController extends Controller
             ],
             // Override Notification URL (Critical for Multi-App support)
             // This ensures Midtrans calls THIS app's callback for THIS transaction
-            'override_notification_url' => route('midtrans.notification'),
+            'override_notification_url' => $notificationUrl,
             'customer_details' => [
                 'first_name' => $user->name,
                 'email' => $user->email,
