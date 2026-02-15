@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
 
         $this->call([
+            PlanSeeder::class,
             CategorySeeder::class,
             WalletSeeder::class,
             TransactionSeeder::class,
