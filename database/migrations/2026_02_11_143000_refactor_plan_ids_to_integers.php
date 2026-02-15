@@ -20,9 +20,11 @@ return new class extends Migration {
         ];
 
         // 2. Temporarily disable foreign keys if any (though currently it's just a string column)
-        Schema::table('subscription_transactions', function (Blueprint $table) {
-            $table->string('plan_id_old')->nullable()->after('plan_id');
-        });
+        if (!Schema::hasColumn('subscription_transactions', 'plan_id_old')) {
+            Schema::table('subscription_transactions', function (Blueprint $table) {
+                $table->string('plan_id_old')->nullable()->after('plan_id');
+            });
+        }
 
         // 3. Backup old plan_id
         DB::table('subscription_transactions')->update(['plan_id_old' => DB::raw('plan_id')]);
@@ -34,23 +36,39 @@ return new class extends Migration {
                 ->update(['plan_id' => (string) $new]);
         }
 
-        // 5. Modify plans table ID to bigIncrements
-        // Since we can't easily change a primary key string to bigIncrements in one go with raw SQL sometimes,
-        // we'll recreate the table or use a safer approach.
-
-        // Safer approach: Drop primary key, change type, set primary back.
-        Schema::table('plans', function (Blueprint $table) {
-            $table->dropPrimary('id');
-        });
-
-        // Map plans data before changing ID type
-        foreach ($mapping as $old => $new) {
-            DB::table('plans')->where('id', $old)->update(['id' => (string) $new]);
+        // 5. Modify plans table ID to bigIncrements using table reconstruction
+        // This is safer for hosting environments that struggle with complex ALTER TABLE changes
+        if (Schema::hasTable('plans')) {
+            if (Schema::hasTable('plans_old')) {
+                Schema::dropIfExists('plans_old');
+            }
+            Schema::rename('plans', 'plans_old');
         }
 
-        Schema::table('plans', function (Blueprint $table) {
-            $table->unsignedBigInteger('id', true)->change();
-        });
+        if (!Schema::hasTable('plans')) {
+            Schema::create('plans', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('name');
+                $table->integer('price')->default(0);
+                $table->timestamps();
+            });
+        }
+
+        // Migrate plans data with New IDs
+        foreach ($mapping as $old => $new) {
+            $oldPlan = DB::table('plans_old')->where('id', $old)->first();
+            if ($oldPlan) {
+                DB::table('plans')->insert([
+                    'id' => $new,
+                    'name' => $oldPlan->name,
+                    'price' => $oldPlan->price,
+                    'created_at' => $oldPlan->created_at,
+                    'updated_at' => $oldPlan->updated_at,
+                ]);
+            }
+        }
+
+        Schema::dropIfExists('plans_old');
 
         // 6. Modify subscription_transactions.plan_id to unsignedBigInteger
         Schema::table('subscription_transactions', function (Blueprint $table) {
@@ -75,12 +93,6 @@ return new class extends Migration {
     {
         Schema::table('subscription_transactions', function (Blueprint $table) {
             $table->dropForeign(['plan_id']);
-            $table->string('plan_id')->nullable()->change();
-        });
-
-        Schema::table('plans', function (Blueprint $table) {
-            $table->dropPrimary('id');
-            $table->string('id')->primary()->change();
         });
 
         $reverseMapping = [
@@ -90,9 +102,36 @@ return new class extends Migration {
             4 => 'lifetime',
         ];
 
+        Schema::rename('plans', 'plans_old');
+
+        Schema::create('plans', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->string('name');
+            $table->integer('price')->default(0);
+            $table->timestamps();
+        });
+
         foreach ($reverseMapping as $new => $old) {
-            DB::table('plans')->where('id', (string) $new)->update(['id' => $old]);
+            $oldPlan = DB::table('plans_old')->where('id', $new)->first();
+            if ($oldPlan) {
+                DB::table('plans')->insert([
+                    'id' => $old,
+                    'name' => $oldPlan->name,
+                    'price' => $oldPlan->price,
+                    'created_at' => $oldPlan->created_at,
+                    'updated_at' => $oldPlan->updated_at,
+                ]);
+            }
+        }
+
+        Schema::table('subscription_transactions', function (Blueprint $table) {
+            $table->string('plan_id')->nullable()->change();
+        });
+
+        foreach ($reverseMapping as $new => $old) {
             DB::table('subscription_transactions')->where('plan_id', (string) $new)->update(['plan_id' => $old]);
         }
+
+        Schema::dropIfExists('plans_old');
     }
 };
