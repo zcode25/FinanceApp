@@ -16,8 +16,8 @@ class MidtransController extends Controller
 {
     public function __construct()
     {
-        Config::$serverKey = env('MIDTRANS_SERVER_KEY');
-        Config::$isProduction = env('MIDTRANS_IS_PRODUCTION', false);
+        Config::$serverKey = config('services.midtrans.server_key');
+        Config::$isProduction = config('services.midtrans.is_production', false);
         Config::$isSanitized = true;
         Config::$is3ds = true;
     }
@@ -205,7 +205,7 @@ class MidtransController extends Controller
 
     public function handleNotification(Request $request)
     {
-        $serverKey = env('MIDTRANS_SERVER_KEY');
+        $serverKey = config('services.midtrans.server_key');
         $orderId = $request->input('order_id');
         $statusCode = $request->input('status_code');
         $grossAmount = $request->input('gross_amount');
