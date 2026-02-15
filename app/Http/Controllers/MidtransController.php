@@ -79,7 +79,7 @@ class MidtransController extends Controller
             ],
             // Override Notification URL (Critical for Multi-App support)
             // This ensures Midtrans calls THIS app's callback for THIS transaction
-            'override_notification_url' => route('payment-callback'),
+            'override_notification_url' => route('midtrans.notification'),
             'customer_details' => [
                 'first_name' => $user->name,
                 'email' => $user->email,

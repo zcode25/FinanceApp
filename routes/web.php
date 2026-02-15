@@ -145,6 +145,3 @@ Route::middleware(['auth'])->group(function () {
 
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
-
-// Midtrans Callback
-Route::post('/payment-callback', [\App\Http\Controllers\PaymentCallbackController::class, 'receive'])->name('payment-callback');
