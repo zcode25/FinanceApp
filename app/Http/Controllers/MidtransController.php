@@ -201,27 +201,39 @@ class MidtransController extends Controller
 
     public function handleNotification(Request $request)
     {
-        try {
-            $notification = new Notification();
-            $transactionStatus = $notification->transaction_status;
-            $orderId = $notification->order_id;
-            $paymentType = $notification->payment_type;
+        $serverKey = env('MIDTRANS_SERVER_KEY');
+        $orderId = $request->input('order_id');
+        $statusCode = $request->input('status_code');
+        $grossAmount = $request->input('gross_amount');
+        $signatureKey = $request->input('signature_key');
+        $transactionStatus = $request->input('transaction_status');
+        $paymentType = $request->input('payment_type');
 
+        // Log incoming notification for debugging
+        \Illuminate\Support\Facades\Log::info("Midtrans Notification received for Order: {$orderId} - Status: {$transactionStatus}");
+
+        // 1. Validate Signature
+        $mySignature = hash('sha512', $orderId . $statusCode . $grossAmount . $serverKey);
+        if ($mySignature !== $signatureKey) {
+            \Illuminate\Support\Facades\Log::error("Midtrans Signature Mismatch for Order: {$orderId}");
+            return response()->json(['message' => 'Invalid signature'], 403);
+        }
+
+        try {
             $transaction = SubscriptionTransaction::where('external_id', $orderId)->first();
 
             if (!$transaction) {
+                \Illuminate\Support\Facades\Log::error("Midtrans Transaction Not Found: {$orderId}");
                 return response()->json(['error' => 'Transaction not found'], 404);
             }
 
             if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
-                // Check if already success to avoid double processing
                 if ($transaction->status !== 'success') {
                     $transaction->update(['status' => 'success', 'payment_type' => $paymentType]);
 
                     $user = $transaction->user;
                     $user->is_premium = true;
 
-                    // Increment Promo Usage if applicable
                     if ($transaction->promo_code_id) {
                         $promo = Promo::find($transaction->promo_code_id);
                         if ($promo) {
@@ -231,16 +243,20 @@ class MidtransController extends Controller
 
                     $user->subscription_until = $this->calculateSubscriptionExpiry($transaction->plan_id, $transaction->external_id);
                     $user->save();
-                }
 
+                    \Illuminate\Support\Facades\Log::info("Midtrans Success handled for Order: {$orderId}");
+                }
             } elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'failure') {
                 $transaction->update(['status' => 'failed']);
+                \Illuminate\Support\Facades\Log::info("Midtrans Failure handled for Order: {$orderId}");
             } elseif ($transactionStatus == 'pending') {
                 $transaction->update(['status' => 'pending']);
+                \Illuminate\Support\Facades\Log::info("Midtrans Pending handled for Order: {$orderId}");
             }
 
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Midtrans Error for Order {$orderId}: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
