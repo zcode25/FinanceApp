@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             WalletSeeder::class,
             TransactionSeeder::class,
+            AdminSeeder::class,
         ]);
 
         \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
