@@ -378,7 +378,7 @@ const fireConfetti = () => {
         if (phase === 'welcome') {
             steps.push({
                 popover: {
-                    title: `<span class="text-xl font-black">${__('tour_welcome_title')}</span>`,
+                    title: `<span class="text-xl font-bold">${__('tour_welcome_title')}</span>`,
                     description: __('tour_welcome_desc') + skipHTML,
                     side: "bottom",
                     align: 'start'
@@ -504,7 +504,7 @@ const fireConfetti = () => {
         } else if (phase === 'final_congrats') {
             steps.push({
                 popover: {
-                    title: `<span class="text-xl font-black">${__('mission_accomplished')}</span>`,
+                    title: `<span class="text-xl font-bold">${__('mission_accomplished')}</span>`,
                     description: __('mission_accomplished_desc'),
                     side: "bottom",
                     align: 'start'
@@ -821,13 +821,13 @@ const fireConfetti = () => {
                         </div>
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <h3 class="text-lg font-black text-slate-900 leading-none">{{ data.subscription.plan_name }}</h3>
+                                <h3 class="text-lg font-bold text-slate-900 leading-none">{{ data.subscription.plan_name }}</h3>
                                 <span v-if="data.subscription.is_premium" 
                                     :class="[
                                         data.subscription.plan_id === 2 ? 'bg-indigo-50 text-indigo-600 border-indigo-100' :
                                         data.subscription.plan_id === 3 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                         data.subscription.plan_id === 4 ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-600 border-slate-100',
-                                        'px-2 py-0.5 text-[9px] font-black rounded-full border transition-colors duration-500'
+                                        'px-2 py-0.5 text-[9px] font-bold rounded-full border transition-colors duration-500'
                                     ]"
                                 >
                                     {{ data.subscription.plan_id === 2 ? 'Pro' : data.subscription.plan_id === 3 ? 'Master' : 'Lifetime' }}
@@ -842,9 +842,9 @@ const fireConfetti = () => {
                     <!-- 2. Countdown Section -->
                     <div class="grid grid-cols-2 gap-6 flex-1 lg:pl-2">
                         <div>
-                            <p class="text-[10px] font-black text-slate-400 mb-1.5">{{ __('time_remaining') }}</p>
+                            <p class="text-[10px] font-bold text-slate-400 mb-1.5">{{ __('time_remaining') }}</p>
                             <div class="flex items-baseline gap-1">
-                                <span class="text-2xl font-black text-slate-900">
+                                <span class="text-2xl font-bold text-slate-900">
                                     {{ data.subscription.days_remaining > 3650 ? '∞' : data.subscription.days_remaining }}
                                 </span>
                                 <span class="text-[10px] font-bold text-slate-400">
@@ -853,13 +853,13 @@ const fireConfetti = () => {
                             </div>
                         </div>
                         <div>
-                            <p class="text-[10px] font-black text-slate-400 mb-1.5">{{ __('expiry_date') }}</p>
+                            <p class="text-[10px] font-bold text-slate-400 mb-1.5">{{ __('expiry_date') }}</p>
                             <div 
                                 :class="[
                                     data.subscription.plan_id === 2 ? 'text-indigo-600' :
                                     data.subscription.plan_id === 3 ? 'text-emerald-600' :
                                     data.subscription.plan_id === 4 ? 'text-purple-600' : 'text-slate-600',
-                                    'text-sm font-black'
+                                    'text-sm font-bold'
                                 ]"
                             >
                                 {{ data.subscription.subscription_until || __('forever') }}
@@ -893,7 +893,7 @@ const fireConfetti = () => {
                                         marketingInsight.theme === 'indigo' ? 'text-indigo-900' :
                                         marketingInsight.theme === 'emerald' ? 'text-emerald-900' :
                                         marketingInsight.theme === 'purple' ? 'text-purple-900' : 'text-slate-900',
-                                        'text-[11px] font-black tracking-tight'
+                                        'text-[11px] font-bold tracking-tight'
                                     ]"
                                 >
                                     {{ marketingInsight.title }}
@@ -908,7 +908,7 @@ const fireConfetti = () => {
                                 marketingInsight.theme === 'indigo' ? 'bg-indigo-600 hover:bg-indigo-700' :
                                 marketingInsight.theme === 'emerald' ? 'bg-emerald-600 hover:bg-emerald-700' :
                                 marketingInsight.theme === 'purple' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-slate-600 hover:bg-slate-700',
-                                'shrink-0 px-3 py-1.5 text-white rounded-lg text-[10px] font-black transition-colors shadow-sm whitespace-nowrap'
+                                'shrink-0 px-3 py-1.5 text-white rounded-lg text-[10px] font-bold transition-colors shadow-sm whitespace-nowrap'
                             ]"
                         >
                             {{ marketingInsight.cta }}
@@ -1267,7 +1267,7 @@ const fireConfetti = () => {
                             </div>
                         </div>
 
-                        <h2 class="text-3xl font-black text-slate-900 mb-2 tracking-tight leading-tight">
+                        <h2 class="text-3xl font-bold text-slate-900 mb-2 tracking-tight leading-tight">
                             {{ __('you_are_pro_now') }}
                         </h2>
                         <p class="text-slate-500 font-medium mb-8 text-sm leading-relaxed px-4">
@@ -1298,7 +1298,7 @@ const fireConfetti = () => {
 
                         <button 
                             @click="closeSuccessModal"
-                            class="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-black text-sm shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 group relative overflow-hidden"
+                            class="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-bold text-sm shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 group relative overflow-hidden"
                         >
                             <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                             {{ __('lets_get_started') }}
