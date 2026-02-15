@@ -21,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'starter.verified' => \App\Http\Middleware\RedirectIfStarterAndUnverified::class,
         ]);
 
+        $middleware->trustProxies(at: '*');
+
         $middleware->validateCsrfTokens(except: [
             'midtrans/notification',
         ]);
