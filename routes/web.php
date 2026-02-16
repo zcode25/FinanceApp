@@ -145,3 +145,15 @@ Route::middleware(['auth'])->group(function () {
 
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
+
+// Temporary route for storage symlink on shared hosting
+Route::get('/debug-link', function () {
+    $target = storage_path('app/public');
+    $link = public_path('storage');
+    
+    if (file_exists($link)) {
+        return 'Link already exists.';
+    }
+    
+    return symlink($target, $link) ? 'Symlink Created Successfully!' : 'Failed to Create Symlink.';
+});
