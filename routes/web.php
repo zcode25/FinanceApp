@@ -148,38 +148,17 @@ Route::middleware(['auth'])->group(function () {
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
 
 // Storage Proxy Route for Shared Hosting (Fallback for missing symlink)
-Route::get('storage/{path}', function ($path) {
+// Media Proxy Route for Shared Hosting (Avoids 'storage' folder conflict)
+Route::get('media/{path}', function ($path) {
     try {
         $filePath = storage_path('app/public/' . $path);
         
-        // Debugging info (Logged to laravel.log)
-        \Illuminate\Support\Facades\Log::info("Storage Proxy Request: [{$path}]");
-        \Illuminate\Support\Facades\Log::info("Resolved Path: [{$filePath}]");
-        \Illuminate\Support\Facades\Log::info("File Exists: " . (file_exists($filePath) ? 'YES' : 'NO'));
-
         if (! file_exists($filePath)) {
-            // Check if file exists with different case (Linux is case-sensitive)
-            $directory = dirname($filePath);
-            $filename = basename($filePath);
-            
-            if (is_dir($directory)) {
-                $files = scandir($directory);
-                \Illuminate\Support\Facades\Log::info("Files in directory [{$directory}]: " . implode(', ', $files));
-            } else {
-                 \Illuminate\Support\Facades\Log::info("Directory does not exist: [{$directory}]");
-            }
-
-            return response()->json([
-                'error' => 'File not found',
-                'path' => $path,
-                'resolved_path' => $filePath,
-                'exists' => false
-            ], 404);
+            return response()->json(['error' => 'File not found'], 404);
         }
 
         return response()->file($filePath);
     } catch (\Exception $e) {
-        \Illuminate\Support\Facades\Log::error("Storage Proxy Error: " . $e->getMessage());
-        return response()->json(['error' => $e->getMessage()], 500);
+        return response()->json(['error' => 'Server Error'], 500);
     }
 })->where('path', '.*');
