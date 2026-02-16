@@ -147,6 +147,18 @@ Route::middleware(['auth'])->group(function () {
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
 
+// Diagnostic route - Remove after fixing 403 issue
+Route::get('storage-test', function () {
+    return response()->json([
+        'message' => 'Laravel is receiving requests!',
+        'environment' => app()->environment(),
+        'storage_path' => storage_path('app/public'),
+        'sample_file_check' => file_exists(storage_path('app/public/avatars/cq4i0PqdWRjtDJvJz39DZ4dIt3ooHpTviaQ1X8Qx.jpg')) ? 'EXISTS' : 'NOT FOUND',
+        'public_path' => public_path('storage'),
+        'public_storage_exists' => file_exists(public_path('storage')) ? 'YES' : 'NO',
+    ]);
+});
+
 // Smart Storage Proxy - Fallback for missing symlink on shared hosting
 Route::get('storage/{path}', function ($path) {
     try {
