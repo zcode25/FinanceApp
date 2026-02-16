@@ -159,6 +159,23 @@ Route::get('storage-test', function () {
     ]);
 });
 
+// Alternative Media Proxy - Bypasses potential Apache restrictions on "storage" keyword
+Route::get('media/{path}', function ($path) {
+    try {
+        $filePath = storage_path('app/public/' . $path);
+        
+        if (!file_exists($filePath)) {
+            \Illuminate\Support\Facades\Log::warning("Media Proxy 404: File not found at {$filePath}");
+            abort(404);
+        }
+
+        return response()->file($filePath);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error("Media Proxy 500: " . $e->getMessage());
+        abort(500);
+    }
+})->where('path', '.*');
+
 // Smart Storage Proxy - Fallback for missing symlink on shared hosting
 Route::get('storage/{path}', function ($path) {
     try {
