@@ -147,34 +147,13 @@ Route::middleware(['auth'])->group(function () {
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
 
-// Temporary route for storage symlink on shared hosting
-Route::get('/debug-link', function () {
-    try {
-        $target = storage_path('app/public');
-        $link = public_path('storage');
-        
-        $results = [
-            'target_exists' => file_exists($target),
-            'link_exists' => file_exists($link),
-            'target_path' => $target,
-            'link_path' => $link,
-            'symlink_function_exists' => function_exists('symlink'),
-        ];
+// Storage Proxy Route for Shared Hosting (Fallback for missing symlink)
+Route::get('storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
 
-        if ($results['link_exists']) {
-            return response()->json(['message' => 'Link already exists.', 'details' => $results]);
-        }
-
-        if (!$results['symlink_function_exists']) {
-            return response()->json(['message' => 'PHP function symlink() is disabled on this hosting.', 'details' => $results], 500);
-        }
-
-        if (symlink($target, $link)) {
-            return response()->json(['message' => 'Symlink Created Successfully!', 'details' => $results]);
-        } else {
-            return response()->json(['message' => 'Failed to Create Symlink.', 'details' => $results], 500);
-        }
-    } catch (\Exception $e) {
-        return response()->json(['message' => 'Error: ' . $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+    if (! file_exists($filePath)) {
+        abort(404);
     }
-});
+
+    return response()->file($filePath);
+})->where('path', '.*');
