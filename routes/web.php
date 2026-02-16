@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
@@ -14,7 +15,7 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\MidtransController;
 
 Route::get('/', function () {
-    if (auth()->check()) {
+    if (Auth::check()) {
         return redirect()->route('dashboard');
     }
 
@@ -44,8 +45,8 @@ Route::post('/locale', function (Illuminate\Http\Request $request) {
 
     session(['locale' => $validated['locale']]);
 
-    if (auth()->check()) {
-        auth()->user()->update(['locale' => $validated['locale']]);
+    if (Auth::check()) {
+        Auth::user()->update(['locale' => $validated['locale']]);
     }
 
     return back();
