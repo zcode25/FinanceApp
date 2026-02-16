@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Services\BudgetService;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class BudgetController extends Controller
@@ -16,17 +17,22 @@ class BudgetController extends Controller
     {
         $budgetService = app(BudgetService::class);
         $month = $request->input('month', Carbon::now()->format('Y-m'));
+        $user = $request->user();
 
         return Inertia::render('Budget/Index', [
-            'budgets' => $budgetService->getMonthlyBudgets($month), // Service needs update
-            'summary' => $budgetService->getSummary($month), // Service needs update
-            'recommendations' => auth()->user()->is_premium ? $budgetService->getRecommendations($month) : [],
-            'categories' => Category::forUser(auth()->id())->get(),
+            'deferred_budgets' => Inertia::defer(function () use ($budgetService, $month) {
+                return $budgetService->getMonthlyBudgets($month);
+            }),
+            'deferred_recommendations' => Inertia::defer(function () use ($budgetService, $month, $user) {
+                return ($user && $user->is_premium) ? $budgetService->getRecommendations($month) : [];
+            }),
+            'summary' => $budgetService->getSummary($month),
+            'categories' => Category::forUser($user?->id)->get(),
             'filters' => [
                 'month' => $month
             ],
-            'is_premium' => auth()->user()->is_premium,
-            'auto_setup_usage' => auth()->user()->auto_setup_usage,
+            'is_premium' => $user?->is_premium ?? false,
+            'auto_setup_usage' => $user?->auto_setup_usage ?? 0,
         ]);
     }
 
@@ -49,7 +55,7 @@ class BudgetController extends Controller
             [
                 'category_id' => $validated['category_id'],
                 'month' => $validated['month'],
-                'user_id' => auth()->id()
+                'user_id' => Auth::id()
             ],
             ['limit' => $validated['limit']]
         );
@@ -59,7 +65,7 @@ class BudgetController extends Controller
 
     public function update(Request $request, Budget $budget)
     {
-        if ($budget->user_id !== auth()->id()) {
+        if ($budget->user_id !== Auth::id()) {
             abort(403);
         }
 
@@ -87,7 +93,7 @@ class BudgetController extends Controller
 
     public function destroy(Budget $budget)
     {
-        if ($budget->user_id !== auth()->id()) {
+        if ($budget->user_id !== Auth::id()) {
             abort(403);
         }
         $budget->delete();
@@ -110,7 +116,7 @@ class BudgetController extends Controller
             'lifestyle.required' => __('lifestyle_required'),
         ]);
 
-        $user = auth()->user();
+        $user = Auth::user();
 
         // Gating logic: Must be premium OR have used 0 times (1x trial)
         if (!$user->is_premium && $user->auto_setup_usage >= 1) {
@@ -129,7 +135,7 @@ class BudgetController extends Controller
                 [
                     'category_id' => $item['category_id'],
                     'month' => $validated['month'],
-                    'user_id' => auth()->id()
+                    'user_id' => Auth::id()
                 ],
                 [
                     'limit' => $item['limit'],

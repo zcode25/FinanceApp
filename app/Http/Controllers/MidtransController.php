@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 use Midtrans\Config;
 use Midtrans\Notification;
 use Midtrans\Snap;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewOrderNotification;
 
 class MidtransController extends Controller
 {
@@ -135,23 +137,13 @@ class MidtransController extends Controller
                     'gross_amount' => $originalAmount,
                     'discount_amount' => $originalAmount,
                     'promo_code_id' => $promoId,
-                    'status' => 'success', // Auto-success
+                    'status' => 'pending', // Create as pending first
                     'payment_type' => 'free_promo',
                     'snap_token' => 'free_upgrade'
                 ]);
 
-                // Activate Premium Immediately
-                $user->is_premium = true;
-                $user->subscription_until = $this->calculateSubscriptionExpiry($plan, $orderId);
-                $user->save();
-
-                // Increment Promo Usage
-                if ($promoId) {
-                    $promo = Promo::find($promoId);
-                    if ($promo) {
-                        $promo->increment('used_count');
-                    }
-                }
+                // Use centralized logic to activate and notify
+                $transaction->markAsSuccess('free_promo');
 
                 return response()->json(['is_free' => true]);
             }
@@ -228,24 +220,8 @@ class MidtransController extends Controller
             }
 
             if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
-                if ($transaction->status !== 'success') {
-                    $transaction->update(['status' => 'success', 'payment_type' => $paymentType]);
-
-                    $user = $transaction->user;
-                    $user->is_premium = true;
-
-                    if ($transaction->promo_code_id) {
-                        $promo = Promo::find($transaction->promo_code_id);
-                        if ($promo) {
-                            $promo->increment('used_count');
-                        }
-                    }
-
-                    $user->subscription_until = $this->calculateSubscriptionExpiry($transaction->plan_id, $transaction->external_id);
-                    $user->save();
-
-                    \Illuminate\Support\Facades\Log::info("Midtrans Success handled for Order: {$orderId}");
-                }
+                $transaction->markAsSuccess($paymentType);
+                \Illuminate\Support\Facades\Log::info("Midtrans Success handled for Order: {$orderId}");
             } elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'failure') {
                 $transaction->update(['status' => 'failed']);
                 \Illuminate\Support\Facades\Log::info("Midtrans Failure handled for Order: {$orderId}");

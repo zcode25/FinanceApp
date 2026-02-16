@@ -19,6 +19,13 @@ const props = defineProps({
     categories: Array,
 });
 
+// Optimistic UI State
+const localCategories = ref([...props.categories]);
+
+watch(() => props.categories, (newVal) => {
+    localCategories.value = [...newVal];
+}, { deep: true });
+
 const page = usePage();
 const __ = (key, replacements = {}) => {
     let translation = page.props.translations?.[key] || key;
@@ -36,7 +43,7 @@ const selectedCategoryForDetails = ref(null);
 const showUpsellModal = ref(false);
 
 const isPremium = computed(() => !!page.props.auth.user.is_premium);
-const customCategoryCount = computed(() => props.categories.filter(c => c.user_id !== null).length);
+const customCategoryCount = computed(() => localCategories.value.filter(c => c.user_id !== null).length);
 
 const openDetailsMobile = (category) => {
     if (window.innerWidth < 768) {
@@ -64,7 +71,7 @@ const colors = [
 ];
 
 const filteredCategories = (type) => {
-    return props.categories.filter(c => c.type === type);
+    return localCategories.value.filter(c => c.type === type);
 };
 
 const openCreateModal = () => {
@@ -143,11 +150,33 @@ const showToast = (title, icon = 'success') => {
 
 const submit = () => {
     if (isEditing.value) {
-        form.put(`/categories/${editingCategory.value.id}`, {
+        // Optimistic Update
+        const originalCategories = JSON.parse(JSON.stringify(localCategories.value));
+        const index = localCategories.value.findIndex(c => c?.id === editingCategory.value?.id);
+        
+        if (index !== -1) {
+            localCategories.value[index] = {
+                ...localCategories.value[index],
+                name: form.name,
+                type: form.type,
+                color: form.color
+            };
+        }
+        
+        const categoryId = editingCategory.value.id;
+        showModal.value = false; // Just hide, don't clear form yet
+
+        form.put(`/categories/${categoryId}`, {
             onSuccess: () => {
-                closeModal();
+                closeModal(); // Now clear form
                 showToast(__('category_updated'));
             },
+            onError: () => {
+                // Rollback
+                localCategories.value = originalCategories;
+                showModal.value = true;
+                showToast('Failed to update category', 'error');
+            }
         });
     } else {
         form.post('/categories', {
@@ -182,9 +211,18 @@ const deleteCategory = (category) => {
         backdrop: 'rgba(15, 23, 42, 0.4)'
     }).then((result) => {
         if (result.isConfirmed) {
+            // Optimistic Delete
+            const originalCategories = [...localCategories.value];
+            localCategories.value = localCategories.value.filter(c => c.id !== category.id);
+
             router.delete(`/categories/${category.id}`, {
                 onSuccess: () => {
                     showToast(__('category_deleted'));
+                },
+                onError: () => {
+                    // Rollback
+                    localCategories.value = originalCategories;
+                    showToast('Failed to delete category', 'error');
                 }
             });
         }

@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Services\ReportService;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\StatementExport; // Will create this later
 
@@ -15,8 +16,8 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
-        $user = auth()->user();
-        $isPremium = $user->is_premium;
+        $user = $request->user();
+        $isPremium = $user?->is_premium ?? false;
         $reportService = app(ReportService::class);
 
         $month = $request->input('month', Carbon::now()->format('Y-m'));
@@ -34,7 +35,7 @@ class ReportController extends Controller
         }
 
         // Pass available months for dropdown (filtered by current user)
-        $availableMonths = Transaction::where('user_id', $user->id)
+        $availableMonths = Transaction::where('user_id', $user?->id)
             ->where('is_active', true)
             ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
             ->distinct()
@@ -46,17 +47,18 @@ class ReportController extends Controller
             $availableMonths = collect([Carbon::now()->format('Y-m')]);
         }
 
-        $reports = $reportService->getDetailedWalletReports($startDate, $endDate);
-
-        $totals = [
-            'total_income' => collect($reports)->sum(fn($r) => $r['summary']['income']),
-            'total_expense' => collect($reports)->sum(fn($r) => $r['summary']['expense']),
-            'total_net' => collect($reports)->sum(fn($r) => $r['summary']['net_flow']),
-        ];
-
         return Inertia::render('Reports/Index', [
-            'reports' => $reports,
-            'totals' => $totals,
+            'reports_data' => Inertia::defer(function () use ($reportService, $startDate, $endDate) {
+                $reports = $reportService->getDetailedWalletReports($startDate, $endDate);
+                return [
+                    'reports' => $reports,
+                    'totals' => [
+                        'total_income' => collect($reports)->sum(fn($r) => $r['summary']['income']),
+                        'total_expense' => collect($reports)->sum(fn($r) => $r['summary']['expense']),
+                        'total_net' => collect($reports)->sum(fn($r) => $r['summary']['net_flow']),
+                    ],
+                ];
+            }),
             'filters' => ['month' => $month],
             'availableMonths' => $availableMonths,
             'is_premium' => $isPremium
@@ -65,7 +67,7 @@ class ReportController extends Controller
 
     public function exportPdf(Request $request)
     {
-        if (!auth()->user()->is_premium) {
+        if (!Auth::user()->is_premium) {
             return response()->json(['error' => 'Upgrade to Professional to export reports.'], 403);
         }
 
@@ -92,7 +94,7 @@ class ReportController extends Controller
 
     public function exportExcel(Request $request)
     {
-        if (!auth()->user()->is_premium) {
+        if (!Auth::user()->is_premium) {
             return response()->json(['error' => 'Upgrade to Professional to export reports.'], 403);
         }
 

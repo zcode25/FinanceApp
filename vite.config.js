@@ -30,5 +30,16 @@ export default defineConfig(({ mode }) => {
             },
             cors: true,
         },
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        'vendor': ['vue', '@inertiajs/vue3', 'axios', 'lodash'],
+                        'ui': ['sweetalert2', 'lucide-vue-next', 'driver.js'],
+                        'charts': ['apexcharts', 'vue3-apexcharts'],
+                    }
+                }
+            }
+        }
     };
 });

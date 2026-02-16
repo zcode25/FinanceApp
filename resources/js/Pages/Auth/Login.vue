@@ -1,7 +1,10 @@
 <script setup>
 import { Head, useForm, Link } from '@inertiajs/vue3';
-import { Lock, Mail, ArrowRight } from 'lucide-vue-next';
+import { Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
+import { ref } from 'vue';
+
+const showPassword = ref(false);
 
 const form = useForm({
     email: '',
@@ -72,10 +75,18 @@ const submit = () => {
                         <Lock class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                         <input 
                             v-model="form.password"
-                            type="password"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
+                            :type="showPassword ? 'text' : 'password'"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-12 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
                             placeholder="••••••••"
                         >
+                        <button 
+                            type="button"
+                            @click="showPassword = !showPassword"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                        >
+                            <Eye v-if="!showPassword" class="w-4 h-4" />
+                            <EyeOff v-else class="w-4 h-4" />
+                        </button>
                     </div>
                     <div v-if="form.errors.password" class="mt-2 text-[11px] font-bold text-rose-500 ml-1">
                         {{ form.errors.password }}
@@ -121,7 +132,7 @@ const submit = () => {
             <div class="mt-10 pt-8 border-t border-slate-50 text-center">
                 <p class="text-xs font-bold text-slate-400">
                     {{ __('no_account') }} 
-                    <Link :href="route('register')" class="text-indigo-600 hover:text-indigo-700 transition-colors ml-1">
+                    <Link :href="route('register')" prefetch class="text-indigo-600 hover:text-indigo-700 transition-colors ml-1">
                         {{ __('register_now') }}
                     </Link>
                 </p>
@@ -129,3 +140,7 @@ const submit = () => {
         </div>
     </div>
 </template>
+
+<style scoped>
+/* Scoped styles */
+</style>

@@ -9,6 +9,7 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Navigation\NavigationItem;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -87,6 +88,13 @@ class AdminPanelProvider extends PanelProvider
                 'danger' => Color::Rose,
             ])
             ->darkMode(false)
+            ->navigationItems([
+                NavigationItem::make('System Pulse')
+                    ->url(fn (): string => url('/pulse'), shouldOpenInNewTab: true)
+                    ->icon('heroicon-o-chart-bar-square')
+                    ->group('System')
+                    ->sort(100),
+            ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

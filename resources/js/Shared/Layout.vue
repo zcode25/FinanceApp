@@ -79,6 +79,12 @@ const vClickOutside = {
     document.removeEventListener('click', el.clickOutsideEvent);
   },
 };
+const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    if (avatar.startsWith('avatars/')) return `/storage/${avatar}`;
+    return `/storage/avatars/${avatar}`;
+};
 </script>
 
 <template>
@@ -89,7 +95,7 @@ const vClickOutside = {
       <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-8">
         <!-- Logo & Account Selector -->
         <div class="flex items-center gap-6">
-          <div class="flex items-center gap-2">
+          <Link href="/dashboard" class="flex items-center gap-2">
             <div class="flex items-center justify-center transition-all hover:scale-110">
               <img src="/img/logo_vibefinance.png" class="h-7 w-auto object-contain" alt="VibeFinance Logo">
             </div>
@@ -99,7 +105,7 @@ const vClickOutside = {
               </span>
               <span class="text-[9px] font-medium text-slate-400">Powered by terasweb.id</span>
             </div>
-          </div>
+          </Link>
         </div>
 
 
@@ -125,7 +131,7 @@ const vClickOutside = {
                 </div>
               </div>
               <div class="w-10 h-10 rounded-xl overflow-hidden ring-2 ring-transparent group-hover:ring-indigo-100 transition-all shadow-sm">
-                <img v-if="user?.avatar" :src="`/storage/${user.avatar}`" class="w-full h-full object-cover" :alt="user.name">
+                <img v-if="user?.avatar" :src="getAvatarUrl(user.avatar)" class="w-full h-full object-cover" :alt="user.name">
                 <div v-else class="w-full h-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
                   {{ user?.name ? user.name.charAt(0).toUpperCase() : 'U' }}
                 </div>
@@ -215,6 +221,7 @@ const vClickOutside = {
           v-for="item in navigation" 
           :key="item.name" 
           :href="item.href"
+          prefetch
           :id="`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`"
           class="relative py-4 text-sm font-semibold transition-all whitespace-nowrap"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'"
@@ -238,6 +245,7 @@ const vClickOutside = {
           v-for="item in bottomNavItems" 
           :key="item.name" 
           :href="item.href"
+          prefetch
           :id="`mobile-nav-${item.name.toLowerCase()}`"
           class="flex flex-col items-center gap-1.5 transition-all active:scale-95"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400'"

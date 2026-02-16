@@ -8,12 +8,14 @@ use Inertia\Inertia;
 use App\Services\AnalysisService;
 use App\Models\Transaction;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class AnalysisController extends Controller
 {
     public function index(Request $request)
     {
         $analysisService = app(AnalysisService::class);
+        $user = $request->user();
 
         $month = $request->input('month', Carbon::now()->format('Y-m'));
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
@@ -21,22 +23,22 @@ class AnalysisController extends Controller
 
         return Inertia::render('Analysis/Index', [
             'summary' => $analysisService->getSummary($startDate, $endDate),
-            'categorySpending' => $analysisService->getSpendingByCategory($startDate, $endDate),
-            'cashFlowTrend' => $analysisService->getCashFlowTrend($startDate, $endDate),
-            'walletAllocation' => $analysisService->getWalletAllocation(),
-            'smartInsights' => $this->getSmartInsights($analysisService, $startDate, $endDate),
-            'financialTips' => $this->getFinancialTips($analysisService, $startDate, $endDate),
+            'walletAllocation' => Inertia::defer(fn () => $analysisService->getWalletAllocation()),
+            'categorySpending' => Inertia::defer(fn () => $analysisService->getSpendingByCategory($startDate, $endDate)),
+            'cashFlowTrend' => Inertia::defer(fn () => $analysisService->getCashFlowTrend($startDate, $endDate)),
+            'smartInsights' => Inertia::defer(fn () => $this->getSmartInsights($analysisService, $startDate, $endDate, $user)),
+            'financialTips' => Inertia::defer(fn () => $this->getFinancialTips($analysisService, $startDate, $endDate, $user)),
             'filters' => [
                 'month' => $month,
             ],
-            'availableMonths' => $this->getAvailableMonths(),
-            'is_premium' => auth()->user()->is_premium
+            'availableMonths' => $this->getAvailableMonths($user),
+            'is_premium' => $user?->is_premium ?? false
         ]);
     }
 
-    private function getAvailableMonths()
+    private function getAvailableMonths($user)
     {
-        $availableMonths = Transaction::where('user_id', auth()->id())
+        $availableMonths = Transaction::where('user_id', $user?->id)
             ->where('is_active', true)
             ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
             ->distinct()
@@ -62,9 +64,9 @@ class AnalysisController extends Controller
         return $availableMonths;
     }
 
-    private function getSmartInsights($service, $startDate, $endDate)
+    private function getSmartInsights($service, $startDate, $endDate, $user)
     {
-        if (!auth()->user()->is_premium) {
+        if (!$user || !$user->is_premium) {
             return [];
         }
 
@@ -76,9 +78,9 @@ class AnalysisController extends Controller
         }
     }
 
-    private function getFinancialTips($service, $startDate, $endDate)
+    private function getFinancialTips($service, $startDate, $endDate, $user)
     {
-        if (!auth()->user()->is_premium) {
+        if (!$user || !$user->is_premium) {
             return [];
         }
 

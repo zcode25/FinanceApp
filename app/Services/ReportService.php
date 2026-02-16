@@ -16,37 +16,44 @@ class ReportService
     {
         $wallets = Wallet::where('user_id', auth()->id())->where('is_active', true)->get();
         $reports = [];
+        $walletIds = $wallets->pluck('id');
+
+        // 1. Batch Fetch Opening Balance Adjustments (Queries AFTER start date)
+        $adjustments = Transaction::whereIn('wallet_id', $walletIds)
+            ->where('is_active', true)
+            ->where('date', '>=', $startDate)
+            ->select('wallet_id',
+                DB::raw("SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income"),
+                DB::raw("SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense")
+            )
+            ->groupBy('wallet_id')
+            ->get()
+            ->keyBy('wallet_id');
+
+        // 2. Batch Fetch All Transactions for the matrix period
+        $allTransactions = Transaction::with('category')
+            ->whereIn('wallet_id', $walletIds)
+            ->where('is_active', true)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->orderBy('date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->groupBy('wallet_id');
 
         foreach ($wallets as $wallet) {
-            // 1. Calculate Opening Balance (Backward from Current Balance)
-            // Opening = Current - (Income >= Start) + (Expense >= Start)
-            // This handles the absence of 'initial_balance' column and ensures accuracy.
-            $postStartTx = Transaction::where('wallet_id', $wallet->id)
-                ->where('user_id', auth()->id())
-                ->where('is_active', true)
-                ->where('date', '>=', $startDate)
-                ->selectRaw("SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income")
-                ->selectRaw("SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense")
-                ->first();
-
+            $walletId = $wallet->id;
+            
+            // 1. Calculate Opening Balance using batch data
+            $adj = $adjustments->get($walletId);
             $openingBalance = $wallet->balance
-                - ($postStartTx->income ?? 0)
-                + ($postStartTx->expense ?? 0);
+                - ($adj->income ?? 0)
+                + ($adj->expense ?? 0);
 
-            // 2. Fetch Transactions Ascending for Running Balance
-            $transactions = Transaction::with('category')
-                ->where('wallet_id', $wallet->id)
-                ->where('user_id', auth()->id())
-                ->where('is_active', true)
-                ->whereBetween('date', [$startDate, $endDate])
-                ->orderBy('date', 'asc') // Chronological order
-                ->orderBy('created_at', 'asc')
-                ->get();
-
-            // 3. Process Transactions & Running Balance
+            // 2. Process Transactions (from grouped collection)
+            $transactions = $allTransactions->get($walletId, collect());
+            
             $runningBalance = $openingBalance;
             $processedTransactions = $transactions->map(function ($tx) use (&$runningBalance) {
-                // Adjust running balance
                 if ($tx->type === 'income') {
                     $runningBalance += $tx->amount;
                 } else {
@@ -54,7 +61,6 @@ class ReportService
                 }
 
                 $data = $tx->toArray();
-                // Return category as array with name and color for UI display
                 $data['category'] = [
                     'name' => $tx->category ? $tx->category->name : 'Uncategorized',
                     'color' => $tx->category ? $tx->category->color : 'bg-slate-500'
@@ -78,9 +84,6 @@ class ReportService
                     'closing_balance' => $closingBalance,
                     'net_flow' => $totalIncome - $totalExpense
                 ],
-                // For display, user requested listing like a statement. 
-                // Usually newest first is "Activity Stream", but "Statement" implies chronological.
-                // The user Example showed 2 Jan, then 3 Jan... so Ascending (Oldest First) is correct.
                 'transactions' => $processedTransactions->values()
             ];
         }

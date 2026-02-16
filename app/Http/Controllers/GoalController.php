@@ -9,21 +9,38 @@ use Inertia\Inertia;
 
 class GoalController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->user();
+        $exchangeRateService = app(\App\Services\ExchangeRateService::class);
+
         $goals = Goal::with('wallets')
-            ->where('user_id', auth()->id())
+            ->where('user_id', $user?->id)
             ->latest()
             ->get()
-            ->map(function (\App\Models\Goal $goal) {
-                $currentAmount = $goal->wallets->sum('balance');
+            ->map(function (\App\Models\Goal $goal) use ($exchangeRateService) {
+                $currentAmountTotal = 0;
+
+                foreach ($goal->wallets as $wallet) {
+                    $balance = (float) $wallet->balance;
+                    
+                    if ($wallet->currency !== $goal->currency) {
+                        $balance = $exchangeRateService->convertAmount(
+                            $balance,
+                            $wallet->currency,
+                            $goal->currency
+                        );
+                    }
+                    
+                    $currentAmountTotal += $balance;
+                }
 
                 return array_merge($goal->toArray(), [
-                    'current_amount' => $currentAmount,
+                    'current_amount' => $currentAmountTotal,
                 ]);
             });
 
-        $wallets = Wallet::where('user_id', auth()->id())
+        $wallets = Wallet::where('user_id', $user?->id)
             ->where('is_active', true)
             ->get();
 
@@ -59,8 +76,8 @@ class GoalController extends Controller
             'wallet_ids.min' => __('wallet_allocation_required'),
         ]);
 
-        $user = auth()->user();
-        $goalCount = Goal::where('user_id', $user->id)->count();
+        $user = $request->user();
+        $goalCount = Goal::where('user_id', $user?->id)->count();
 
         if (!$user->is_premium && $goalCount >= 1) {
             return redirect()->back()->withErrors([
@@ -68,7 +85,7 @@ class GoalController extends Controller
             ]);
         }
 
-        $validated['user_id'] = auth()->id();
+        $validated['user_id'] = $user?->id;
 
         $goal = Goal::create($validated);
         $goal->wallets()->attach($request->wallet_ids);
@@ -78,7 +95,7 @@ class GoalController extends Controller
 
     public function update(Request $request, Goal $goal)
     {
-        if ($goal->user_id !== auth()->id()) {
+        if ($goal->user_id !== $request->user()?->id) {
             abort(403);
         }
 
@@ -100,9 +117,9 @@ class GoalController extends Controller
         return redirect()->back()->with('message', 'Goal updated successfully');
     }
 
-    public function destroy(Goal $goal)
+    public function destroy(Request $request, Goal $goal)
     {
-        if ($goal->user_id !== auth()->id()) {
+        if ($goal->user_id !== $request->user()?->id) {
             abort(403);
         }
 

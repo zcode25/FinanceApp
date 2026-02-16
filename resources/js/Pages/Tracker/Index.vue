@@ -1,6 +1,6 @@
 <script setup>
 import Layout from '../../Shared/Layout.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage, Deferred } from '@inertiajs/vue3';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -36,11 +36,22 @@ const __ = (key, replacements = {}) => {
 };
 
 const props = defineProps({
-    periods: Array,
-    matrix: Array,
-    totals: Object,
+    periods: {
+        type: Array,
+        default: () => []
+    },
+    deferred_totals: Object,
+    deferred_matrix: Array,
     filters: Object,
     is_premium: Boolean
+});
+
+// Centralized data access with robust defaults for deferred props
+const data = computed(() => {
+    return {
+        matrix: props.deferred_matrix || [],
+        totals: props.deferred_totals || {}
+    };
 });
 
 const showUpsellModal = ref(false);
@@ -81,13 +92,13 @@ const totalNetWorth = computed(() => {
     if (props.periods.length === 0) return 0;
     const latestIndex = props.periods.length - 1;
     const key = props.periods[latestIndex].key;
-    return props.totals[key] || 0;
+    return data.value.totals[key] || 0;
 });
 
 const firstNetWorth = computed(() => {
     if (props.periods.length === 0) return 0;
     const key = props.periods[0].key;
-    return props.totals[key] || 0;
+    return data.value.totals[key] || 0;
 });
 
 const periodChange = computed(() => totalNetWorth.value - firstNetWorth.value);
@@ -290,8 +301,20 @@ watch(() => page.url, () => {
         </header>
 
         <div class="max-w-[1600px] space-y-8">
-            <template v-if="matrix.length > 0">
-                <!-- SUMMARY GRID -->
+            <!-- 1. Deferred Summary Grid -->
+            <Deferred data="deferred_totals">
+                <template #fallback>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
+                        <div v-for="i in 3" :key="i" class="h-40 bg-slate-50 rounded-[2rem] animate-pulse border border-slate-100 flex flex-col justify-between p-8">
+                            <div class="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+                            <div class="space-y-3">
+                                <div class="w-24 h-4 bg-slate-100 rounded-lg"></div>
+                                <div class="w-40 h-8 bg-slate-200 rounded-lg"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <div class="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12 -mx-4 px-4 md:mx-0 md:px-0 no-scrollbar md:overflow-visible">
                     <!-- Current Net Worth -->
                     <div id="step-tracker-total" class="relative overflow-hidden rounded-[2rem] p-8 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-200 min-w-[90vw] md:min-w-0 snap-center">
@@ -357,7 +380,41 @@ watch(() => page.url, () => {
                         </div>
                     </div>
                 </div>
+            </Deferred>
 
+            <!-- 2. Deferred Matrix Table -->
+            <Deferred data="deferred_matrix">
+                <template #fallback>
+                     <div class="bg-white rounded-2xl border border-slate-100 p-8 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div class="h-8 w-48 bg-slate-50 rounded-lg animate-pulse"></div>
+                            <div class="h-8 w-8 bg-slate-50 rounded-lg animate-pulse"></div>
+                        </div>
+                        
+                        <!-- Table Skeleton -->
+                        <div class="space-y-4">
+                            <!-- Header -->
+                            <div class="flex gap-4 pb-4 border-b border-slate-50">
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                            </div>
+                            <!-- Rows -->
+                            <div v-for="i in 5" :key="i" class="flex gap-4 py-2">
+                                <div class="w-1/4 flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-slate-50 animate-pulse"></div>
+                                    <div class="w-24 h-4 bg-slate-50 rounded animate-pulse"></div>
+                                </div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div v-if="data.matrix.length > 0">
                 <!-- Matrix Table (Desktop) -->
                 <div id="step-tracker-matrix" class="hidden md:flex bg-white overflow-hidden shadow-sm rounded-2xl border border-slate-100 flex-col mb-12 relative">
                     <div class="p-6 border-b border-slate-100 flex justify-between items-center">
@@ -399,7 +456,7 @@ watch(() => page.url, () => {
                             <tbody class="divide-y divide-slate-100 bg-white">
                                 <!-- Wallet Rows -->
                                 <tr 
-                                    v-for="(row, rowIndex) in matrix" 
+                                    v-for="(row, rowIndex) in data.matrix" 
                                     :key="row.id" 
                                     class="group transition-all duration-200"
                                     :class="rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'"
@@ -450,7 +507,7 @@ watch(() => page.url, () => {
                                         :key="period.key"
                                         class="px-8 py-4 text-right text-slate-900 text-sm tabular-nums"
                                     >
-                                        {{ formatCurrency(totals[period.key], 'IDR').split(',')[0] }}
+                                        {{ formatCurrency(data.totals[period.key], 'IDR').split(',')[0] }}
                                     </td>
                                 </tr>
 
@@ -465,7 +522,7 @@ watch(() => page.url, () => {
                                         class="px-8 py-4 text-right tabular-nums font-bold text-sm text-slate-900"
                                     >
                                         <template v-if="index > 0">
-                                            {{ totals[period.key] - totals[periods[index-1].key] >= 0 ? '+' : '' }}{{ formatCurrency(totals[period.key] - totals[periods[index-1].key], 'IDR').split(',')[0] }}
+                                            {{ data.totals[period.key] - data.totals[periods[index-1].key] >= 0 ? '+' : '' }}{{ formatCurrency(data.totals[period.key] - data.totals[periods[index-1].key], 'IDR').split(',')[0] }}
                                         </template>
                                         <template v-else>-</template>
                                     </td>
@@ -480,11 +537,11 @@ watch(() => page.url, () => {
                                         v-for="(period, index) in periods" 
                                         :key="period.key"
                                         class="px-8 py-4 text-right tabular-nums font-bold text-sm"
-                                        :class="index > 0 ? (totals[period.key] - totals[periods[index-1].key] >= 0 ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-400'"
+                                        :class="index > 0 ? (data.totals[period.key] - data.totals[periods[index-1].key] >= 0 ? 'text-emerald-500' : 'text-rose-500') : 'text-slate-400'"
                                     >
-                                        <template v-if="index > 0 && totals[periods[index-1].key] !== 0">
-                                            {{ totals[period.key] - totals[periods[index-1].key] >= 0 ? '▲' : '▼' }}
-                                            {{ Math.abs(((totals[period.key] - totals[periods[index-1].key]) / Math.abs(totals[periods[index-1].key]) * 100)).toFixed(1) }}%
+                                        <template v-if="index > 0 && data.totals[periods[index-1].key] !== 0">
+                                            {{ data.totals[period.key] - data.totals[periods[index-1].key] >= 0 ? '▲' : '▼' }}
+                                            {{ Math.abs(((data.totals[period.key] - data.totals[periods[index-1].key]) / Math.abs(data.totals[periods[index-1].key]) * 100)).toFixed(1) }}%
                                         </template>
                                         <template v-else>-</template>
                                     </td>
@@ -511,7 +568,7 @@ watch(() => page.url, () => {
 
                     <div id="step-tracker-mobile-list" :class="{ 'blur-md opacity-50 pointer-events-none select-none': !is_premium && range !== '3m' }">
                         <div 
-                            v-for="row in matrix" 
+                            v-for="row in data.matrix" 
                             :key="row.id" 
                             @click="openHistoryMobile(row)"
                             class="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-200 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between group mb-4"
@@ -539,7 +596,9 @@ watch(() => page.url, () => {
                         </div>
                     </div>
                 </div>
-            </template><div v-else class="bg-white border border-slate-100 rounded-[2rem] p-12 md:p-20 text-center space-y-6 shadow-sm animate-in fade-in zoom-in duration-500">
+                </div>
+                <!-- Empty State -->
+                <div v-else class="bg-white border border-slate-100 rounded-[2rem] p-12 md:p-20 text-center space-y-6 shadow-sm animate-in fade-in zoom-in duration-500">
                 <div class="w-16 h-16 bg-slate-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
                     <Zap class="w-8 h-8 text-slate-300" />
                 </div>
@@ -563,7 +622,8 @@ watch(() => page.url, () => {
                         <span>{{ __('manage_wallets') }}</span>
                     </Link>
                 </div>
-            </div>
+                </div>
+            </Deferred>
 
             <!-- History Details Bottom Sheet (Mobile) -->
             <Teleport to="body">

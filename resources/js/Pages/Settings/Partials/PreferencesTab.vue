@@ -1,9 +1,36 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
 import { Globe } from 'lucide-vue-next';
+import Swal from 'sweetalert2';
 
     const page = usePage();
     const __ = (key) => page.props.translations?.[key] || key;
+    
+    // Toast Helper
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    const showToast = (title, icon = 'success') => {
+        Toast.fire({
+            icon: icon,
+            title: title,
+            background: '#ffffff',
+            color: '#1e293b',
+            customClass: {
+                popup: 'swal2-toast !rounded-2xl !p-4 shadow-xl border border-slate-100',
+                title: '!text-sm !font-bold !text-slate-900',
+            }
+        });
+    };
     
     const props = defineProps({
         user: Object,
@@ -17,7 +44,7 @@ import { Globe } from 'lucide-vue-next';
         form.patch('/settings/preferences', {
             preserveScroll: true,
             onSuccess: () => {
-                 // Optional: Show toast
+                showToast(__('preferences_updated'));
             },
         });
     };

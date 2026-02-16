@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateUserActivity
 {
@@ -15,8 +16,8 @@ class UpdateUserActivity
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check()) {
-            $user = auth()->user();
+        if (Auth::check()) {
+            $user = Auth::user();
 
             // Throttle: Update only if last_login_at is null or older than 24 hours
             if (!$user->last_login_at || $user->last_login_at->diffInHours(now()) >= 24) {

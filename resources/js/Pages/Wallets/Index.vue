@@ -140,6 +140,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
         isEditing.value = false;
         editingId.value = null;
         form.reset();
+        form.clearErrors();
         form.currency = 'IDR'; // Default
         form.type = 'cash'; // Default
         showModal.value = true;
@@ -153,6 +154,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
         
         isEditing.value = true;
         editingId.value = wallet.id;
+        form.clearErrors();
         form.name = wallet.name;
         form.type = wallet.type;
         form.currency = wallet.currency;
@@ -279,12 +281,24 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                 cancelButton: '!inline-flex !items-center !justify-center !bg-slate-100 !text-slate-700 hover:!bg-slate-200 !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm !border-none !outline-none !m-0 !cursor-pointer active:!scale-95',
                 icon: wallet.is_active 
                     ? '!border-4 !border-rose-100 !text-rose-600 !scale-110 !mb-6 !mt-2'
-                    : '!border-4 !border-emerald-100 !text-emerald-600 !scale-110 !mb-6 !mt-2'
+                    : '!border-4 !border-emerald-100 !text-emerald-100 !text-emerald-600 !scale-110 !mb-6 !mt-2'
             },
             buttonsStyling: false,
             backdrop: 'rgba(15, 23, 42, 0.4)'
         }).then((result) => {
             if (result.isConfirmed) {
+                // Optimistic Update
+                const walletIndex = localWallets.value.findIndex(w => w.id === wallet.id);
+                const originalStatus = wallet.is_active;
+
+                if (walletIndex !== -1) {
+                     // Toggle immediately
+                     localWallets.value[walletIndex].is_active = !originalStatus;
+                     
+                     // If we are in the detail modal, we might want to close it or update the selected wallet ref if it's reactive
+                     showDetailModal.value = false;
+                }
+
                 router.patch(`/wallets/${wallet.id}/toggle`, {}, {
                     preserveScroll: true,
                     onSuccess: () => {
@@ -299,7 +313,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                 toast.addEventListener('mouseleave', Swal.resumeTimer)
                             }
                         });
-                        showDetailModal.value = false;
+                        
                         Toast.fire({
                             icon: 'success',
                             title: __('wallet_status_updated'),
@@ -309,6 +323,21 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                 popup: 'swal2-toast !rounded-2xl !p-4 shadow-xl border border-slate-100',
                                 title: '!text-sm !font-bold !text-slate-900',
                             }
+                        });
+                    },
+                    onError: () => {
+                        // Revert on error
+                        if (walletIndex !== -1) {
+                            localWallets.value[walletIndex].is_active = originalStatus;
+                        }
+                        
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'error',
+                            title: __('failed_update_status'),
+                            showConfirmButton: false,
+                            timer: 3000
                         });
                     }
                 });
@@ -712,7 +741,11 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                         <form @submit.prevent="submit" class="space-y-6">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('name') }}</label>
-                                <input v-model="form.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :placeholder="__('wallet_placeholder_name')" required>
+                                <input v-model="form.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :class="{ '!border-rose-500 focus:!border-rose-500 focus:!ring-rose-500/20': form.errors.name }" :placeholder="__('wallet_placeholder_name')">
+                                <p v-if="form.errors.name" class="text-rose-500 text-xs mt-1 font-medium ml-1 flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                                    {{ form.errors.name }}
+                                </p>
                             </div>
     
                             <div class="grid grid-cols-1 gap-6" :class="{ 'md:grid-cols-2': !isEditing }">
@@ -722,6 +755,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                         v-model="form.type" 
                                         :options="typeOptions" 
                                         :placeholder="__('select_type')" 
+                                        :error="form.errors.type"
                                     />
                                 </div>
                                 
@@ -731,6 +765,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                         v-model="form.currency" 
                                         :options="currencyOptions" 
                                         :placeholder="__('select_currency')" 
+                                        :error="form.errors.currency"
                                     />
                                 </div>
                             </div>
@@ -738,12 +773,20 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                             <div v-if="form.type !== 'cash'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('bank_name') }}</label>
-                                    <input v-model="form.bank_name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :placeholder="__('wallet_placeholder_bank')">
+                                    <input v-model="form.bank_name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :class="{ '!border-rose-500 focus:!border-rose-500 focus:!ring-rose-500/20': form.errors.bank_name }" :placeholder="__('wallet_placeholder_bank')">
+                                    <p v-if="form.errors.bank_name" class="text-rose-500 text-xs mt-1 font-medium ml-1 flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                                        {{ form.errors.bank_name }}
+                                    </p>
                                 </div>
     
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('account_number') }}</label>
-                                    <input v-model="form.account_number" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :placeholder="__('wallet_placeholder_account')">
+                                    <input v-model="form.account_number" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm" :class="{ '!border-rose-500 focus:!border-rose-500 focus:!ring-rose-500/20': form.errors.account_number }" :placeholder="__('wallet_placeholder_account')">
+                                    <p v-if="form.errors.account_number" class="text-rose-500 text-xs mt-1 font-medium ml-1 flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                                        {{ form.errors.account_number }}
+                                    </p>
                                 </div>
                             </div>
     
@@ -753,6 +796,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                     v-model="form.balance" 
                                     :currency="form.currency" 
                                     placeholder="0"
+                                    :error="form.errors.balance"
                                 />
                             </div>
     

@@ -7,6 +7,10 @@ const props = defineProps({
     currency: {
         type: String,
         default: 'IDR'
+    },
+    error: {
+        type: String,
+        default: ''
     }
 });
 
@@ -124,9 +128,11 @@ watch(() => props.currency, () => {
             @input="onInput"
             @blur="onBlur"
             class="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all px-4 py-3 font-semibold text-sm"
-            :class="{ 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20': errorMessage }"
+            :class="{ 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20': errorMessage || error }"
             :placeholder="placeholder || 'Rp 0'"
         >
+        
+        <!-- Internal format error -->
         <transition
             enter-active-class="transition ease-out duration-200"
             enter-from-class="opacity-0 -translate-y-1"
@@ -140,5 +146,11 @@ watch(() => props.currency, () => {
                 {{ errorMessage }}
             </div>
         </transition>
+
+        <!-- External validation error -->
+        <p v-if="error" class="text-rose-500 text-xs mt-1 font-medium ml-1 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+            {{ error }}
+        </p>
     </div>
 </template>

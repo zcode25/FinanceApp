@@ -1,6 +1,6 @@
 <script setup>
 import Layout from '../../Shared/Layout.vue';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage, Deferred } from '@inertiajs/vue3';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
@@ -38,11 +38,22 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
     };
 
     const props = defineProps({
-        reports: Array,
-        totals: Object,
+        reports_data: Object, // Deferred: { reports, totals }
         filters: Object,
         availableMonths: Array,
         is_premium: Boolean
+    });
+
+    // Centralized data access with robust defaults for deferred props
+    const data = computed(() => {
+        return {
+            reports: props.reports_data?.reports || [],
+            totals: props.reports_data?.totals || {
+                total_income: 0,
+                total_expense: 0,
+                total_net: 0
+            }
+        };
     });
 
     const showUpsellModal = ref(false);
@@ -64,7 +75,7 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
         threeMonthsAgo.setDate(1);
 
-        return props.availableMonths.map(monthStr => {
+        return (props.availableMonths || []).map(monthStr => {
             const [year, month] = monthStr.split('-');
             const date = new Date(year, month - 1);
             const isRestricted = !props.is_premium && date < threeMonthsAgo;
@@ -101,7 +112,8 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
         router.get('/reports', { month: newMonth }, {
             preserveState: true,
             preserveScroll: true,
-            replace: true
+            replace: true,
+            only: ['reports_data', 'filters']
         });
     });
     
@@ -326,13 +338,33 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
             </header>
     
             <!-- Wallet Reports Loop -->
-            <div v-if="reports.length > 0" class="pb-24 md:pb-0">
-                <div 
-                    v-for="(report, index) in reports" 
-                    :key="report.wallet.id" 
-                    class="mb-8"
-                    :id="index === 0 ? 'step-reports-card' : ''"
-                >
+            <Deferred data="reports_data">
+                <template #fallback>
+                    <div class="space-y-8 pb-24 md:pb-0">
+                        <div v-for="i in 2" :key="i" class="glass-card overflow-hidden animate-pulse">
+                            <div class="p-6 md:p-8 space-y-8">
+                                <div class="flex items-center gap-5">
+                                    <div class="w-14 h-14 rounded-2xl bg-slate-100"></div>
+                                    <div class="space-y-2">
+                                        <div class="h-6 w-32 bg-slate-100 rounded"></div>
+                                        <div class="h-4 w-20 bg-slate-50 rounded"></div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                                    <div v-for="j in 4" :key="j" class="h-20 bg-slate-50 rounded-2xl"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div v-if="data.reports.length > 0" class="pb-24 md:pb-0">
+                    <div 
+                        v-for="(report, index) in data.reports" 
+                        :key="report.wallet.id" 
+                        class="mb-8"
+                        :id="index === 0 ? 'step-reports-card' : ''"
+                    >
                     <div class="glass-card overflow-hidden">
                         <!-- Wallet Header & Stats Container -->
                         <div class="p-6 md:p-8 space-y-8">
@@ -517,21 +549,22 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
             </div>
             
             <div v-else class="bg-white border border-slate-100 rounded-[2rem] p-12 md:p-20 text-center space-y-6 shadow-sm animate-in fade-in zoom-in duration-500">
-                <div class="w-16 h-16 bg-slate-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                    <FileText class="w-8 h-8 text-slate-300" />
+                    <div class="w-16 h-16 bg-slate-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <FileText class="w-8 h-8 text-slate-300" />
+                    </div>
+                    <div class="space-y-1">
+                        <h2 class="text-base font-bold text-slate-900">{{ __('no_statement_generated') }}</h2>
+                        <p class="text-slate-500 max-w-sm mx-auto font-medium text-sm">{{ __('no_statement_desc') }}</p>
+                    </div>
+                    <button 
+                        @click="router.visit('/wallets')"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto"
+                    >
+                        <WalletIcon class="w-4 h-4" />
+                        <span>{{ __('manage_wallets') }}</span>
+                    </button>
                 </div>
-                <div class="space-y-1">
-                    <h2 class="text-base font-bold text-slate-900">{{ __('no_statement_generated') }}</h2>
-                    <p class="text-slate-500 max-w-sm mx-auto font-medium text-sm">{{ __('no_statement_desc') }}</p>
-                </div>
-                <button 
-                    @click="router.visit('/wallets')"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl hover:shadow-indigo-300 active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto"
-                >
-                    <WalletIcon class="w-4 h-4" />
-                    <span>{{ __('manage_wallets') }}</span>
-                </button>
-            </div>
+            </Deferred>
 
             <!-- Premium Upsell Modal -->
             <PremiumUpsellModal 

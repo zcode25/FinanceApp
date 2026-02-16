@@ -313,6 +313,11 @@ class SubscriptionTransactionResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['user', 'plan']);
+    }
+
     public static function getPages(): array
     {
         return [

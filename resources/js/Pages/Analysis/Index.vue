@@ -1,6 +1,6 @@
 <script setup>
 import Layout from '../../Shared/Layout.vue';
-import { usePage, router, Head, Link } from '@inertiajs/vue3';
+import { usePage, router, Head, Link, Deferred } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { TrendingUp, Flame, AlertTriangle, Calendar, Coffee, Award, Shield, ShieldAlert, Scissors, PiggyBank, Target, PieChart as PieChartIcon, Activity, ArrowUpRight, Lightbulb, Plus, Lock, Sparkles, Crown } from 'lucide-vue-next';
 import VueApexCharts from "vue3-apexcharts";
@@ -25,6 +25,27 @@ const skipHTML = `<div class="mt-4 flex justify-start">
         availableMonths: Array,
         financialTips: Array,
         is_premium: Boolean
+    });
+
+    // Centralized data access with robust defaults for deferred props
+    const data = computed(() => {
+        return {
+            summary: props.summary || {
+                savings_rate: 0,
+                total_income: 0,
+                total_expense: 0,
+                net_savings: 0
+            },
+            categorySpending: props.categorySpending || [],
+            cashFlowTrend: props.cashFlowTrend || {
+                labels: [],
+                income: [],
+                expense: []
+            },
+            smartInsights: props.smartInsights || [],
+            walletAllocation: props.walletAllocation || [],
+            financialTips: props.financialTips || []
+        };
     });
     
     // Filters state
@@ -54,7 +75,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
             background: 'transparent',
             foreColor: '#64748b'
         },
-        labels: props.categorySpending.map(item => item.category_name),
+        labels: (data.value.categorySpending || []).map(item => item.category_name),
         colors: ['#4f46e5', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'],
         stroke: {
             show: true,
@@ -159,7 +180,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
         },
         xaxis: {
             type: 'category',
-            categories: props.cashFlowTrend.labels,
+            categories: data.value.cashFlowTrend.labels,
             axisBorder: { show: true, color: '#cbd5e1' },
             axisTicks: { show: false },
             tooltip: { enabled: false }, // Menghilangkan kotak abu-abu "06" di bawah
@@ -209,9 +230,9 @@ const skipHTML = `<div class="mt-4 flex justify-start">
     }));
     
     // Chart Series
-    const incomeSeries = computed(() => [{ name: 'Pemasukan', data: props.cashFlowTrend.income }]);
-    const expenseSeries = computed(() => [{ name: 'Pengeluaran', data: props.cashFlowTrend.expense }]);
-    const categorySeries = computed(() => props.categorySpending.map(item => parseFloat(item.total)));
+    const incomeSeries = computed(() => [{ name: 'Pemasukan', data: data.value.cashFlowTrend.income }]);
+    const expenseSeries = computed(() => [{ name: 'Pengeluaran', data: data.value.cashFlowTrend.expense }]);
+    const categorySeries = computed(() => (data.value.categorySpending || []).map(item => parseFloat(item.total)));
     
     // Helpers
     const formatCurrency = (amount) => {
@@ -232,24 +253,24 @@ const skipHTML = `<div class="mt-4 flex justify-start">
 
 
     const processedCategorySpending = computed(() => {
-        const total = props.categorySpending.reduce((sum, item) => sum + parseFloat(item.total), 0);
-        return props.categorySpending.map(item => ({
+        const total = data.value.categorySpending.reduce((sum, item) => sum + parseFloat(item.total), 0);
+        return (data.value.categorySpending || []).map(item => ({
             ...item,
             percentage: total > 0 ? ((parseFloat(item.total) / total) * 100).toFixed(1) : 0
         }));
     });
     
     const topCategory = computed(() => {
-        if (props.categorySpending.length === 0) return __('status_no_data');
-        return props.categorySpending[0].category_name;
+        if (data.value.categorySpending.length === 0) return __('status_no_data');
+        return data.value.categorySpending[0].category_name;
     });
     
     const savingsStatus = computed(() => {
-        const rate = props.summary.savings_rate;
-        const income = props.summary.total_income;
+        const rate = data.value.summary.savings_rate;
+        const income = data.value.summary.total_income;
 
-        if (income === 0 && props.summary.total_expense === 0) return { label: __('status_no_data'), color: 'text-slate-400', bg: 'bg-slate-100' };
-        if (income === 0 && props.summary.total_expense > 0) return { label: __('status_overspending'), color: 'text-rose-700', bg: 'bg-rose-50 border-rose-100' };
+        if (income === 0 && data.value.summary.total_expense === 0) return { label: __('status_no_data'), color: 'text-slate-400', bg: 'bg-slate-100' };
+        if (income === 0 && data.value.summary.total_expense > 0) return { label: __('status_overspending'), color: 'text-rose-700', bg: 'bg-rose-50 border-rose-100' };
 
         if (rate >= 30) return { label: __('status_excellent'), color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-100' };
         if (rate >= 10) return { label: __('status_good'), color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-100' };
@@ -280,10 +301,10 @@ const skipHTML = `<div class="mt-4 flex justify-start">
         }
     };
     const efficiencyStatus = computed(() => {
-        const rate = props.summary.savings_rate;
-        const income = props.summary.total_income;
+        const rate = data.value.summary.savings_rate;
+        const income = data.value.summary.total_income;
 
-        if (income === 0 && props.summary.total_expense === 0) return { label: __('status_no_data'), color: 'text-slate-400' };
+        if (income === 0 && data.value.summary.total_expense === 0) return { label: __('status_no_data'), color: 'text-slate-400' };
         
         if (rate >= 20) return { label: __('status_high'), color: 'text-emerald-600' };
         if (rate > 0) return { label: __('status_medium'), color: 'text-amber-600' };
@@ -291,7 +312,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
     });
 
     const hasData = computed(() => {
-        return props.summary.total_income > 0 || props.summary.total_expense > 0;
+        return data.value.summary.total_income > 0 || data.value.summary.total_expense > 0;
     });
 
     const startTour = () => {
@@ -475,7 +496,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                                 <h3 class="font-bold text-base md:text-lg text-white/90 tracking-tight">{{ __('savings_rate') }}</h3>
                             </div>
                             <div class="space-y-1">
-                                <h2 class="text-2xl md:text-3xl font-bold tracking-tight tabular-nums">{{ summary.savings_rate }}%</h2>
+                                <h2 class="text-2xl md:text-3xl font-bold tracking-tight tabular-nums">{{ data.summary.savings_rate }}%</h2>
                                 <div class="inline-flex items-center px-3 py-1 rounded-full text-[10px] md:text-xs font-bold bg-white/20 backdrop-blur-sm border border-white/10 text-white">
                                     {{ savingsStatus.label }}
                                 </div>
@@ -496,7 +517,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                             <h3 class="font-bold text-base md:text-lg text-white/90 tracking-tight">{{ __('net_savings') }}</h3>
                         </div>
                         <div class="space-y-1">
-                            <h2 class="text-2xl md:text-3xl font-bold tracking-tight tabular-nums">{{ formatCurrency(summary.net_savings).split(',')[0] }}</h2>
+                            <h2 class="text-2xl md:text-3xl font-bold tracking-tight tabular-nums">{{ formatCurrency(data.summary.net_savings).split(',')[0] }}</h2>
                             <p class="text-emerald-100 font-medium text-xs md:text-sm">{{ __('monthly_surplus') }}</p>
                         </div>
                     </div>
@@ -554,29 +575,42 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                             <ArrowUpRight class="w-4 h-4 md:w-5 md:h-5" />
                         </div>
                     </div>
-                    <div class="h-[220px] md:h-[280px] w-full">
-                    <VueApexCharts 
-                        v-if="hasData"
-                        type="area" 
-                        height="100%" 
-                        width="100%"
-                        :options="incomeChartOptions" 
-                        :series="incomeSeries" 
-                    />
-                    <!-- Empty State for Income Chart -->
-                    <div v-else class="text-center px-4">
-                        <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                            <TrendingUp class="w-7 h-7 text-slate-300" />
+                    <Deferred data="cashFlowTrend">
+                        <template #fallback>
+                            <div class="h-[220px] md:h-[280px] w-full flex flex-col justify-end gap-3 pb-2">
+                                <div class="flex items-end justify-between gap-2 h-full px-2">
+                                    <div v-for="i in 12" :key="i" 
+                                        class="w-full bg-slate-50 rounded-t-lg animate-pulse"
+                                        :style="{ height: `${Math.floor(Math.random() * 40) + 20}%` }">
+                                    </div>
+                                </div>
+                                <div class="h-px w-full bg-slate-100"></div>
+                            </div>
+                        </template>
+                        <div class="h-[220px] md:h-[280px] w-full">
+                            <VueApexCharts 
+                                v-if="hasData"
+                                type="area" 
+                                height="100%" 
+                                width="100%"
+                                :options="incomeChartOptions" 
+                                :series="incomeSeries" 
+                            />
+                            <!-- Empty State for Income Chart -->
+                            <div v-else class="text-center px-4">
+                                <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <TrendingUp class="w-7 h-7 text-slate-300" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_analysis_yet') }}</h4>
+                                <p class="text-slate-500 text-sm mb-4">{{ __('inc_data_appear') }}</p>
+                                
+                                <Link href="/transactions" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                                    <Plus class="w-4 h-4" />
+                                    <span>{{ __('add_transaction') }}</span>
+                                </Link>
+                            </div>
                         </div>
-                        <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_analysis_yet') }}</h4>
-                        <p class="text-slate-500 text-sm mb-4">{{ __('inc_data_appear') }}</p>
-                        
-                        <Link href="/transactions" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                            <Plus class="w-4 h-4" />
-                            <span>{{ __('add_transaction') }}</span>
-                        </Link>
-                    </div>
-                </div>
+                    </Deferred>
                 </div>
 
                 <!-- Expense Chart -->
@@ -590,29 +624,42 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                             <ArrowUpRight class="w-4 h-4 md:w-5 md:h-5 rotate-90" />
                         </div>
                     </div>
-                    <div class="h-[220px] md:h-[280px] w-full">
-                    <VueApexCharts 
-                        v-if="hasData"
-                        type="area" 
-                        height="100%" 
-                        width="100%"
-                        :options="expenseChartOptions" 
-                        :series="expenseSeries" 
-                    />
-                    <!-- Empty State for Expense Chart -->
-                    <div v-else class="text-center px-4">
-                        <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                            <ArrowUpRight class="w-7 h-7 text-slate-300 rotate-90" />
+                    <Deferred data="cashFlowTrend">
+                        <template #fallback>
+                            <div class="h-[220px] md:h-[280px] w-full flex flex-col justify-end gap-3 pb-2">
+                                <div class="flex items-end justify-between gap-2 h-full px-2">
+                                    <div v-for="i in 12" :key="i" 
+                                        class="w-full bg-slate-50 rounded-t-lg animate-pulse"
+                                        :style="{ height: `${Math.floor(Math.random() * 40) + 20}%` }">
+                                    </div>
+                                </div>
+                                <div class="h-px w-full bg-slate-100"></div>
+                            </div>
+                        </template>
+                        <div class="h-[220px] md:h-[280px] w-full">
+                            <VueApexCharts 
+                                v-if="hasData"
+                                type="area" 
+                                height="100%" 
+                                width="100%"
+                                :options="expenseChartOptions" 
+                                :series="expenseSeries" 
+                            />
+                            <!-- Empty State for Expense Chart -->
+                            <div v-else class="text-center px-4">
+                                <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <ArrowUpRight class="w-7 h-7 text-slate-300 rotate-90" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_data_available') }}</h4>
+                                <p class="text-slate-500 text-sm mb-4">{{ __('cant_show_expense') }}</p>
+                                
+                                <Link href="/transactions" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                                    <Plus class="w-4 h-4" />
+                                    <span>{{ __('add_transaction') }}</span>
+                                </Link>
+                            </div>
                         </div>
-                        <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_data_available') }}</h4>
-                        <p class="text-slate-500 text-sm mb-4">{{ __('cant_show_expense') }}</p>
-                        
-                        <Link href="/transactions" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                            <Plus class="w-4 h-4" />
-                            <span>{{ __('add_transaction') }}</span>
-                        </Link>
-                    </div>
-                </div>
+                    </Deferred>
                 </div>
             </div>
 
@@ -628,57 +675,76 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                     </div>
                 </div>
                 
-                <div v-if="categorySpending.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
-                    <!-- Chart Section (50%) -->
-                    <div class="h-[340px] md:h-[380px] w-full relative flex items-center justify-center">
-                        <VueApexCharts 
-                            type="donut" 
-                            height="100%" 
-                            width="100%"
-                            :options="categoryChartOptions" 
-                            :series="categorySeries" 
-                        />
-                    </div>
+                <Deferred data="categorySpending">
+                    <template #fallback>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center py-8">
+                            <div class="relative w-[280px] h-[280px] mx-auto animate-pulse flex items-center justify-center">
+                                <div class="w-full h-full rounded-full border-[30px] border-slate-50"></div>
+                                <div class="absolute w-[180px] h-[180px] rounded-full bg-slate-50/30"></div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div v-for="i in 6" :key="i" class="p-4 rounded-2xl border border-slate-50 space-y-3">
+                                    <div class="flex justify-between items-center">
+                                        <div class="w-20 h-3 bg-slate-50 rounded animate-pulse"></div>
+                                        <div class="w-16 h-3 bg-slate-50 rounded animate-pulse"></div>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-slate-50 rounded-full animate-pulse"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div v-if="data.categorySpending.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
+                        <!-- Chart Section (50%) -->
+                        <div class="h-[340px] md:h-[380px] w-full relative flex items-center justify-center">
+                            <VueApexCharts 
+                                type="donut" 
+                                height="100%" 
+                                width="100%"
+                                :options="categoryChartOptions" 
+                                :series="categorySeries" 
+                            />
+                        </div>
 
-                    <!-- Category Details Grid (50%) -->
-                    <div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                            <div v-for="(item, index) in processedCategorySpending" :key="index" class="p-3 rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group bg-slate-50/50">
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shadow-sm" :style="{ backgroundColor: categoryChartOptions.colors[index % categoryChartOptions.colors.length] }"></span>
-                                        <span class="text-xs font-bold text-slate-700">{{ item.category_name }}</span>
+                        <!-- Category Details Grid (50%) -->
+                        <div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                                <div v-for="(item, index) in processedCategorySpending" :key="index" class="p-3 rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group bg-slate-50/50">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shadow-sm" :style="{ backgroundColor: categoryChartOptions.colors[index % categoryChartOptions.colors.length] }"></span>
+                                            <span class="text-xs font-bold text-slate-700">{{ item.category_name }}</span>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-900 tabular-nums">{{ formatCurrency(item.total).split(',')[0] }}</span>
                                     </div>
-                                    <span class="text-xs font-bold text-slate-900 tabular-nums">{{ formatCurrency(item.total).split(',')[0] }}</span>
-                                </div>
-                                
-                                <!-- Progress Bar -->
-                                <div class="w-full bg-slate-200 rounded-full h-1 md:h-1.5 overflow-hidden mb-1">
-                                    <div class="h-full rounded-full transition-all duration-500" 
-                                         :style="{ 
-                                             width: `${item.percentage}%`,
-                                             backgroundColor: categoryChartOptions.colors[index % categoryChartOptions.colors.length]
-                                         }">
+                                    
+                                    <!-- Progress Bar -->
+                                    <div class="w-full bg-slate-200 rounded-full h-1 md:h-1.5 overflow-hidden mb-1">
+                                        <div class="h-full rounded-full transition-all duration-500" 
+                                            :style="{ 
+                                                width: `${item.percentage}%`,
+                                                backgroundColor: categoryChartOptions.colors[index % categoryChartOptions.colors.length]
+                                            }">
+                                        </div>
                                     </div>
+                                    <p class="text-xs text-slate-400 font-medium text-right">{{ item.percentage }}%</p>
                                 </div>
-                                <p class="text-xs text-slate-400 font-medium text-right">{{ item.percentage }}%</p>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Empty State centered across full card -->
-                <div v-else class="py-12 flex flex-col items-center justify-center text-center">
-                    <div class="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4">
-                        <PieChartIcon class="w-8 h-8 text-slate-300" />
+                    <!-- Empty State centered across full card -->
+                    <div v-else class="py-12 flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4">
+                            <PieChartIcon class="w-8 h-8 text-slate-300" />
+                        </div>
+                        <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_spending_data') }}</h4>
+                        <p class="text-sm text-slate-500 mb-6 max-w-xs mx-auto">{{ __('record_tx_see_breakdown') }}</p>
+                        <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                            <Plus class="w-4 h-4" />
+                            <span>{{ __('add_transaction') }}</span>
+                        </Link>
                     </div>
-                    <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_spending_data') }}</h4>
-                    <p class="text-sm text-slate-500 mb-6 max-w-xs mx-auto">{{ __('record_tx_see_breakdown') }}</p>
-                    <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                        <Plus class="w-4 h-4" />
-                        <span>{{ __('add_transaction') }}</span>
-                    </Link>
-                </div>
+                </Deferred>
             </div>
 
             <!-- Insights & Tips (Split Grid) -->
@@ -692,41 +758,54 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                         </div>
                     </div>
 
-                    <div v-if="is_premium" class="p-6 md:p-8 pt-0 flex-grow">
-                        <div v-if="smartInsights.length > 0" class="space-y-4">
-                            <div 
-                                v-for="(insight, index) in smartInsights" 
-                                :key="index"
-                                :class="['p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition-all', getInsightStyle(insight.type)]"
-                            >
-                                <component :is="iconMap[insight.icon]" class="w-4 h-4 md:w-5 md:h-5 shrink-0 mt-1" />
-                                <div>
-                                    <h4 class="text-[13px] md:text-sm font-bold mb-1">{{ insight.title }}</h4>
-                                    <p class="text-[12px] md:text-sm opacity-90 leading-relaxed">{{ insight.message }}</p>
+                    <Deferred data="smartInsights">
+                        <template #fallback>
+                            <div class="p-6 md:p-8 pt-0 flex-grow space-y-4">
+                                <div v-for="i in 3" :key="i" class="p-5 rounded-2xl border border-slate-50 flex gap-4 animate-pulse">
+                                    <div class="w-5 h-5 rounded-lg bg-slate-50 shrink-0"></div>
+                                    <div class="flex-grow space-y-2">
+                                        <div class="w-32 h-3.5 bg-slate-50 rounded"></div>
+                                        <div class="w-full h-12 bg-slate-50/50 rounded-lg"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div v-else class="text-center py-12 flex flex-col items-center justify-center">
-                            <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <Lightbulb class="w-7 h-7 text-slate-300" />
+                        </template>
+                        <div v-if="is_premium" class="p-6 md:p-8 pt-0 flex-grow">
+                            <div v-if="data.smartInsights.length > 0" class="space-y-4">
+                                <div 
+                                    v-for="(insight, index) in data.smartInsights" 
+                                    :key="index"
+                                    :class="['p-4 md:p-5 rounded-2xl border flex gap-3 md:gap-4 transition-all', getInsightStyle(insight.type)]"
+                                >
+                                    <component :is="iconMap[insight.icon]" class="w-4 h-4 md:w-5 md:h-5 shrink-0 mt-1" />
+                                    <div>
+                                        <h4 class="text-[13px] md:text-sm font-bold mb-1">{{ insight.title }}</h4>
+                                        <p class="text-[12px] md:text-sm opacity-90 leading-relaxed">{{ insight.message }}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('analyzing_patterns') }}</h4>
-                            <p class="text-slate-500 text-sm max-w-[200px] mx-auto">{{ __('smart_insights_appear') }}</p>
+                            <div v-else class="text-center py-12 flex flex-col items-center justify-center">
+                                <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <Lightbulb class="w-7 h-7 text-slate-300" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('analyzing_patterns') }}</h4>
+                                <p class="text-slate-500 text-sm max-w-[200px] mx-auto">{{ __('smart_insights_appear') }}</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Premium Lock Overlay for Insights -->
-                    <div v-else class="flex-grow flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
-                        <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-5 border border-indigo-50 animate-bounce-subtle">
-                            <Crown class="w-8 h-8 text-amber-500" />
+                        <!-- Premium Lock Overlay for Insights -->
+                        <div v-else class="flex-grow flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
+                            <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-5 border border-indigo-50 animate-bounce-subtle">
+                                <Crown class="w-8 h-8 text-amber-500" />
+                            </div>
+                            <h4 class="text-slate-900 font-bold text-lg mb-2">{{ __('unlock_smart_insights') }}</h4>
+                            <p class="text-sm text-slate-500 mb-6 max-w-[280px]">{{ __('get_ai_analysis') }}</p>
+                            <Link href="/subscription" class="px-6 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2">
+                                <Sparkles class="w-4 h-4" />
+                                {{ __('upgrade_professional') }}
+                            </Link>
                         </div>
-                        <h4 class="text-slate-900 font-bold text-lg mb-2">{{ __('unlock_smart_insights') }}</h4>
-                        <p class="text-sm text-slate-500 mb-6 max-w-[280px]">{{ __('get_ai_analysis') }}</p>
-                        <Link href="/subscription" class="px-6 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2">
-                            <Sparkles class="w-4 h-4" />
-                            {{ __('upgrade_professional') }}
-                        </Link>
-                    </div>
+                    </Deferred>
                 </div>
 
                 <!-- Financial Tips -->
@@ -738,43 +817,56 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                         </div>
                     </div>
                     
-                    <div v-if="is_premium" class="p-6 md:p-8 pt-0 flex-grow">
-                        <div v-if="financialTips.length > 0" class="space-y-4">
-                            <div 
-                                v-for="(tip, index) in financialTips" 
-                                :key="index" 
-                                class="p-4 md:p-5 rounded-2xl border border-slate-100 bg-slate-50 flex gap-3 md:gap-4 transition-all hover:bg-white hover:shadow-sm"
-                            >
-                                <div class="p-2 h-fit rounded-xl bg-white border border-slate-100 text-indigo-600 shrink-0 shadow-sm">
-                                    <Target class="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                </div>
-                                <div>
-                                    <h4 class="text-[13px] md:text-sm font-bold mb-1 text-slate-900">{{ tip.title }}</h4>
-                                    <p class="text-[12px] md:text-sm text-slate-600 leading-relaxed">{{ tip.message }}</p>
+                    <Deferred data="financialTips">
+                        <template #fallback>
+                            <div class="p-6 md:p-8 pt-0 flex-grow space-y-4">
+                                <div v-for="i in 3" :key="i" class="p-5 rounded-2xl border border-slate-50 flex gap-4 animate-pulse">
+                                    <div class="w-8 h-8 rounded-xl bg-slate-50 shrink-0"></div>
+                                    <div class="flex-grow space-y-2">
+                                        <div class="w-24 h-3 bg-slate-50 rounded"></div>
+                                        <div class="w-full h-8 bg-slate-50/50 rounded"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div v-else class="text-center py-12 flex flex-col items-center justify-center">
-                            <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <Award class="w-7 h-7 text-slate-300" />
+                        </template>
+                        <div v-if="is_premium" class="p-6 md:p-8 pt-0 flex-grow">
+                            <div v-if="data.financialTips.length > 0" class="space-y-4">
+                                <div 
+                                    v-for="(tip, index) in data.financialTips" 
+                                    :key="index" 
+                                    class="p-4 md:p-5 rounded-2xl border border-slate-100 bg-slate-50 flex gap-3 md:gap-4 transition-all hover:bg-white hover:shadow-sm"
+                                >
+                                    <div class="p-2 h-fit rounded-xl bg-white border border-slate-100 text-indigo-600 shrink-0 shadow-sm">
+                                        <Target class="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                    </div>
+                                    <div>
+                                        <h4 class="text-[13px] md:text-sm font-bold mb-1 text-slate-900">{{ tip.title }}</h4>
+                                        <p class="text-[12px] md:text-sm text-slate-600 leading-relaxed">{{ tip.message }}</p>
+                                    </div>
+                                </div>
                             </div>
-                            <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('growth_tips') }}</h4>
-                            <p class="text-slate-500 text-sm max-w-[200px] mx-auto">{{ __('tips_generated') }}</p>
+                            <div v-else class="text-center py-12 flex flex-col items-center justify-center">
+                                <div class="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <Award class="w-7 h-7 text-slate-300" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('growth_tips') }}</h4>
+                                <p class="text-slate-500 text-sm max-w-[200px] mx-auto">{{ __('tips_generated') }}</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Premium Lock Overlay for Pro Tips -->
-                    <div v-else class="flex-grow flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
-                        <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-5 border border-indigo-50 animate-bounce-subtle">
-                            <Crown class="w-8 h-8 text-amber-500" />
+                        <!-- Premium Lock Overlay for Pro Tips -->
+                        <div v-else class="flex-grow flex flex-col items-center justify-center text-center p-8 bg-slate-50/50">
+                            <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100 mb-5 border border-indigo-50 animate-bounce-subtle">
+                                <Crown class="w-8 h-8 text-amber-500" />
+                            </div>
+                            <h4 class="text-slate-900 font-bold text-lg mb-2">{{ __('master_finances') }}</h4>
+                            <p class="text-sm text-slate-500 mb-6 max-w-[280px]">{{ __('unlock_advice') }}</p>
+                            <Link href="/subscription" class="px-6 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2">
+                                <Sparkles class="w-4 h-4" />
+                                {{ __('upgrade_professional') }}
+                            </Link>
                         </div>
-                        <h4 class="text-slate-900 font-bold text-lg mb-2">{{ __('master_finances') }}</h4>
-                        <p class="text-sm text-slate-500 mb-6 max-w-[280px]">{{ __('unlock_advice') }}</p>
-                        <Link href="/subscription" class="px-6 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-2">
-                            <Sparkles class="w-4 h-4" />
-                            {{ __('upgrade_professional') }}
-                        </Link>
-                    </div>
+                    </Deferred>
                 </div>
             </div>
         </Layout>

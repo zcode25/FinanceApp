@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 
 class EmailVerificationController extends Controller
 {
@@ -46,7 +47,7 @@ class EmailVerificationController extends Controller
         try {
             $request->user()->sendEmailVerificationNotification();
         } catch (\Exception $e) {
-            \Log::error('Resend Mail Error: ' . $e->getMessage());
+            Log::error('Resend Mail Error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to send verification email. Please try again later.']);
         }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage, Deferred } from '@inertiajs/vue3';
 import Layout from '@/Shared/Layout.vue';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import confetti from 'canvas-confetti';
@@ -40,7 +40,39 @@ import {
 import VueApexCharts from "vue3-apexcharts";
 
 const props = defineProps({
-    data: Object
+    summary: Object,
+    available_months: Array,
+    subscription: Object,
+    deferred_charts: Object,
+    deferred_breakdown: Object,
+    deferred_transactions: Array
+});
+
+// Shorthand for easy access with robust defaults to prevent initialization crashes
+const data = computed(() => {
+    const summaryDefaults = { 
+        selected_month: '', 
+        selected_month_label: '', 
+        net_worth: 0, 
+        monthly_income: 0, 
+        monthly_expense: 0 
+    };
+    const subscriptionDefaults = { 
+        is_premium: false, 
+        plan_id: 1, 
+        plan_name: 'Starter', 
+        days_remaining: 0 
+    };
+
+    return {
+        summary: props.summary || summaryDefaults,
+        available_months: props.available_months || [],
+        subscription: props.subscription || subscriptionDefaults,
+        charts: props.deferred_charts || { labels: [], income: [], expense: [] },
+        wallets: props.deferred_breakdown?.wallets || [],
+        categories: props.deferred_breakdown?.categories || [],
+        recent_transactions: props.deferred_transactions || []
+    };
 });
 
 const page = usePage();
@@ -52,7 +84,7 @@ const __ = (key, replacements = {}) => {
     return translation;
 };
 
-const selectedMonth = ref(props.data.summary.selected_month);
+const selectedMonth = ref(props.summary?.selected_month || '');
 const driverObj = ref(null);
 
 const skipHTML = `<div class="mt-4 flex justify-start">
@@ -89,12 +121,13 @@ watch(selectedMonth, (newMonth) => {
     router.get('/dashboard', { month: newMonth }, { 
         preserveState: true,
         preserveScroll: true,
-        replace: true
+        replace: true,
+        only: ['summary', 'deferred_charts', 'deferred_breakdown', 'deferred_transactions', 'subscription']
     });
 });
 
 // Sync local state if props change (e.g. Back button)
-watch(() => props.data.summary.selected_month, (newMonth) => {
+watch(() => props.summary?.selected_month, (newMonth) => {
     if (newMonth && newMonth !== selectedMonth.value) {
         selectedMonth.value = newMonth;
     }
@@ -141,7 +174,7 @@ const commonChartOptions = computed(() => ({
     },
     xaxis: {
         type: 'category',
-        categories: props.data.charts.labels,
+        categories: data.value.charts.labels,
         axisBorder: { show: true, color: '#cbd5e1' },
         axisTicks: { show: false },
         tooltip: { enabled: false }, // Menghilangkan kotak abu-abu "06" di bawah
@@ -167,7 +200,7 @@ const commonChartOptions = computed(() => ({
             show: true,
             formatter: (val) => {
                 const day = String(parseInt(val)).padStart(2, '0');
-                return `${day} ${props.data.summary.selected_month_label}`;
+                return `${day} ${data.value.summary.selected_month_label}`;
             }
         },
         y: { formatter: (val) => formatCurrency(val) }
@@ -178,10 +211,10 @@ const commonChartOptions = computed(() => ({
 const statisticsSeries = computed(() => {
     const series = [];
     if (showIncome.value) {
-        series.push({ name: __('total_income'), data: props.data.charts.income, color: '#10b981' });
+        series.push({ name: __('total_income'), data: data.value.charts.income, color: '#10b981' });
     }
     if (showExpense.value) {
-        series.push({ name: __('total_expense'), data: props.data.charts.expense, color: '#f59e0b' });
+        series.push({ name: __('total_expense'), data: data.value.charts.expense, color: '#f59e0b' });
     }
     return series;
 });
@@ -205,7 +238,7 @@ const pieChartOptions = computed(() => ({
             }
         }
     },
-    labels: props.data.categories.slice(0, 3).map(item => item.category),
+    labels: (data.value.categories || []).slice(0, 3).map(item => item.category),
     colors: ['#10b981', '#f43f5e', '#f59e0b'],
     legend: {
         show: true,
@@ -283,8 +316,8 @@ const pieChartOptions = computed(() => ({
         enabled: true,
         theme: 'dark',
         y: {
-            formatter: (val) => formatCurrency(props.data.categories.slice(0, 3).find((cat, idx) => {
-                const total = props.data.categories.reduce((a, b) => a + parseFloat(b.total), 0);
+            formatter: (val) => formatCurrency(data.value.categories.slice(0, 3).find((cat, idx) => {
+                const total = data.value.categories.reduce((a, b) => a + parseFloat(b.total), 0);
                 return Math.round((parseFloat(cat.total) / total) * 100) === Math.round(val);
             })?.total || 0)
         }
@@ -292,8 +325,8 @@ const pieChartOptions = computed(() => ({
 }));
 
 const categorySeries = computed(() => {
-    const total = props.data.categories.reduce((a, b) => a + parseFloat(b.total), 0);
-    return props.data.categories.slice(0, 3).map(item => Math.round((parseFloat(item.total) / total) * 100));
+    const total = data.value.categories.reduce((a, b) => a + parseFloat(b.total), 0);
+    return (data.value.categories || []).slice(0, 3).map(item => Math.round((parseFloat(item.total) / total) * 100));
 });
 
 const getTypeColor = (type) => {
@@ -330,8 +363,8 @@ const getDotColor = (type) => {
     }
 };
 const savingsRate = computed(() => {
-    const income = props.data.summary.monthly_income || 0;
-    const expense = props.data.summary.monthly_expense || 0;
+    const income = data.value.summary.monthly_income || 0;
+    const expense = data.value.summary.monthly_expense || 0;
     
     if (income === 0 && expense === 0) return 0;
     // If income is 0 but there are expenses, savings rate is effectively -100% (or we can just show 0 to be safe)
@@ -343,7 +376,7 @@ const savingsRate = computed(() => {
 
 // Check if user has any transactions
 const hasTransactions = computed(() => {
-    return props.data.recent_transactions && props.data.recent_transactions.length > 0;
+    return data.value.recent_transactions && data.value.recent_transactions.length > 0;
 });
 
 // Success Celebration Logic
@@ -711,8 +744,8 @@ const fireConfetti = () => {
         }, 500);
     };
 
-    const marketingInsight = computed(() => {
-        const sub = props.data.subscription;
+const marketingInsight = computed(() => {
+    const sub = data.value.subscription;
         if (!sub) return null;
 
         // Using a similar logic to Pricing.vue for consistency
@@ -1067,168 +1100,194 @@ const fireConfetti = () => {
             <!-- STATISTICS & EXPENSE BREAKDOWN (Desktop Only) -->
             <div class="hidden lg:grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Main Statistics Chart (2/3) -->
-                <div id="tour-charts" class="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-8 space-y-8 shadow-sm hover:shadow-md transition-all duration-300">
-                    <div class="flex items-center justify-between">
-                        <div class="space-y-1">
-                            <h2 class="text-xl font-bold text-slate-900">{{ __('income_vs_expense') }}</h2>
-                            <p class="text-sm font-medium text-slate-400">{{ __('yearly_analytics_desc') }}</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <!-- Income Toggle Button -->
-                            <button 
-                                @click="toggleIncome"
-                                :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
-                                    showIncome 
-                                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 hover:bg-emerald-600' 
-                                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                ]"
-                            >
-                                <div :class="['w-2 h-2 rounded-full', showIncome ? 'bg-white' : 'bg-slate-400']"></div>
-                                <span>{{ __('income') }}</span>
-                            </button>
-                            
-                            <!-- Expense Toggle Button -->
-                            <button 
-                                @click="toggleExpense"
-                                :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
-                                    showExpense 
-                                        ? 'bg-orange-500 text-white shadow-md shadow-orange-200 hover:bg-orange-600' 
-                                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                                ]"
-                            >
-                                <div :class="['w-2 h-2 rounded-full', showExpense ? 'bg-white' : 'bg-slate-400']"></div>
-                                <span>{{ __('expense') }}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="h-[350px] w-full">
-                        <VueApexCharts v-if="hasTransactions" type="area" height="100%" width="100%" :options="commonChartOptions" :series="statisticsSeries" />
-                        
-                        <!-- Empty State for Main Chart -->
-                        <div v-else class="text-center px-8 py-16">
-                            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <TrendingUp class="w-8 h-8 text-slate-300" />
+                <Deferred data="deferred_charts">
+                    <template #fallback>
+                        <div class="lg:col-span-2 h-[498px] bg-white rounded-[2rem] border border-slate-100 p-8 space-y-8 animate-pulse shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div class="space-y-2">
+                                    <div class="h-6 w-48 bg-slate-100 rounded-md"></div>
+                                    <div class="h-4 w-32 bg-slate-50 rounded-md"></div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <div class="h-8 w-24 bg-slate-100 rounded-xl"></div>
+                                    <div class="h-8 w-24 bg-slate-100 rounded-xl"></div>
+                                </div>
                             </div>
-                            <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_analysis_yet') }}</h4>
-                            <p class="text-slate-500 text-sm mb-4">{{ __('no_analysis_desc') }}</p>
-                            
-                            <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                                <Plus class="w-4 h-4" />
-                                <span>{{ __('add_transaction') }}</span>
-                            </Link>
+                            <div class="flex-1 w-full bg-slate-50/50 rounded-2xl"></div>
+                        </div>
+                    </template>
+                    <div id="tour-charts" class="lg:col-span-2 bg-white border border-slate-100 rounded-[2rem] p-8 space-y-8 shadow-sm hover:shadow-md transition-all duration-300">
+                        <div class="flex items-center justify-between">
+                            <div class="space-y-1">
+                                <h2 class="text-xl font-bold text-slate-900">{{ __('income_vs_expense') }}</h2>
+                                <p class="text-sm font-medium text-slate-400">{{ __('yearly_analytics_desc') }}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button @click="toggleIncome" :class="[
+                                        'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
+                                        showIncome ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 hover:bg-emerald-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                    ]">
+                                    <div :class="['w-2 h-2 rounded-full', showIncome ? 'bg-white' : 'bg-slate-400']"></div>
+                                    <span>{{ __('income') }}</span>
+                                </button>
+                                <button @click="toggleExpense" :class="[
+                                        'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all',
+                                        showExpense ? 'bg-orange-500 text-white shadow-md shadow-orange-200 hover:bg-orange-600' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                    ]">
+                                    <div :class="['w-2 h-2 rounded-full', showExpense ? 'bg-white' : 'bg-slate-400']"></div>
+                                    <span>{{ __('expense') }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="h-[350px] w-full">
+                            <VueApexCharts v-if="hasTransactions" type="area" height="100%" width="100%" :options="commonChartOptions" :series="statisticsSeries" />
+                            <div v-else class="text-center px-8 py-16">
+                                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <TrendingUp class="w-8 h-8 text-slate-300" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_analysis_yet') }}</h4>
+                                <p class="text-slate-500 text-sm mb-4">{{ __('no_analysis_desc') }}</p>
+                                <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                                    <Plus class="w-4 h-4" />
+                                    <span>{{ __('add_transaction') }}</span>
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Deferred>
 
                 <!-- Expense Breakdown PIE CHART (1/3) -->
-                <div id="tour-breakdown" class="bg-white border border-slate-100 rounded-[2rem] p-8 flex flex-col shadow-sm hover:shadow-md transition-all duration-300 h-full">
-                    <div class="flex items-center justify-between mb-2">
-                        <h2 class="text-xl font-bold text-slate-900">{{ __('top_expenses') }}</h2>
-                    </div>
-                    <p class="text-sm font-medium text-slate-400 mb-6">{{ __('expense_breakdown') }}</p>
-                    
-                    <div class="flex justify-center items-center flex-1">
-                        <div v-if="hasTransactions" class="relative w-full max-w-[320px]">
-                            <VueApexCharts type="pie" height="320" :options="pieChartOptions" :series="categorySeries" />
-                        </div>
-
-                        <!-- Empty State for Pie Chart -->
-                        <div v-else class="text-center px-8 py-16">
-                            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                <PieChart class="w-8 h-8 text-slate-300" />
+                <Deferred data="deferred_breakdown">
+                    <template #fallback>
+                        <div class="h-[498px] bg-white rounded-[2rem] border border-slate-100 p-8 flex flex-col animate-pulse shadow-sm">
+                            <div class="space-y-2 mb-8">
+                                <div class="h-6 w-32 bg-slate-100 rounded-md"></div>
+                                <div class="h-4 w-48 bg-slate-50 rounded-md"></div>
                             </div>
-                            <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_results') }}</h4>
-                            <p class="text-slate-500 text-sm mb-4">{{ __('no_data_available_desc') }}</p>
-                            
-                            <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                                <Plus class="w-4 h-4" />
-                                <span>{{ __('add_transaction') }}</span>
-                            </Link>
+                            <div class="flex-1 flex items-center justify-center">
+                                <div class="w-48 h-48 rounded-full border-[20px] border-slate-50"></div>
+                            </div>
+                            <div class="flex justify-center gap-4 mt-8">
+                                <div class="h-4 w-16 bg-slate-100 rounded-full"></div>
+                                <div class="h-4 w-16 bg-slate-100 rounded-full"></div>
+                            </div>
+                        </div>
+                    </template>
+                    <div id="tour-breakdown" class="bg-white border border-slate-100 rounded-[2rem] p-8 flex flex-col shadow-sm hover:shadow-md transition-all duration-300 h-full">
+                        <div class="flex items-center justify-between mb-2">
+                            <h2 class="text-xl font-bold text-slate-900">{{ __('top_expenses') }}</h2>
+                        </div>
+                        <p class="text-sm font-medium text-slate-400 mb-6">{{ __('expense_breakdown') }}</p>
+                        <div class="flex justify-center items-center flex-1">
+                            <div v-if="hasTransactions" class="relative w-full max-w-[320px]">
+                                <VueApexCharts type="pie" height="320" :options="pieChartOptions" :series="categorySeries" />
+                            </div>
+                            <div v-else class="text-center px-8 py-16">
+                                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                    <PieChart class="w-8 h-8 text-slate-300" />
+                                </div>
+                                <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_results') }}</h4>
+                                <p class="text-slate-500 text-sm mb-4">{{ __('no_data_available_desc') }}</p>
+                                <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                                    <Plus class="w-4 h-4" />
+                                    <span>{{ __('add_transaction') }}</span>
+                                </Link>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Deferred>
             </div>
 
             <!-- RECENT TRANSACTIONS (Desktop Only) -->
-            <div id="step-activity" class="hidden lg:block bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                <div class="p-8 border-b border-slate-50 flex items-center justify-between">
-                    <div class="space-y-1">
-                        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ __('recent_transactions') }}</h2>
-                        <p class="text-sm font-semibold text-slate-400">{{ __('latest_financial_activities') }}</p>
+            <Deferred data="deferred_transactions">
+                <template #fallback>
+                    <div class="hidden lg:block bg-white border border-slate-100 rounded-[2rem] p-8 space-y-6 animate-pulse shadow-sm min-h-[400px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="space-y-2">
+                                <div class="h-8 w-64 bg-slate-100 rounded-md"></div>
+                                <div class="h-4 w-48 bg-slate-50 rounded-md"></div>
+                            </div>
+                            <div class="h-10 w-32 bg-slate-100 rounded-xl"></div>
+                        </div>
+                        <div class="space-y-4">
+                            <div v-for="i in 5" :key="i" class="h-16 w-full bg-slate-50/50 rounded-2xl"></div>
+                        </div>
                     </div>
-                    <Link href="/transactions" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-indigo-600/20 active:scale-95">
-                        {{ __('view_all') }} <ArrowRight class="w-4 h-4" />
-                    </Link>
+                </template>
+                <div id="step-activity" class="hidden lg:block bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                    <div class="p-8 border-b border-slate-50 flex items-center justify-between">
+                        <div class="space-y-1">
+                            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ __('recent_transactions') }}</h2>
+                            <p class="text-sm font-semibold text-slate-400">{{ __('latest_financial_activities') }}</p>
+                        </div>
+                        <Link href="/transactions" class="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-indigo-600/20 active:scale-95">
+                            {{ __('view_all') }} <ArrowRight class="w-4 h-4" />
+                        </Link>
+                    </div>
+
+                    <div class="overflow-x-auto pb-6">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50/50 border-b border-slate-100">
+                                <tr class="text-xs font-bold text-slate-500 tracking-tight">
+                                    <th class="px-8 py-4 pl-10">{{ __('date') }}</th>
+                                    <th class="px-8 py-4">{{ __('description') }}</th>
+                                    <th class="px-8 py-4">{{ __('wallet') }}</th>
+                                    <th class="px-8 py-4">{{ __('category') }}</th>
+                                    <th class="px-8 py-4 text-right pr-10">{{ __('amount') }}</th>
+                                </tr>
+                            </thead>
+                            <!-- Empty State Table Body -->
+                            <tbody v-if="!hasTransactions" class="divide-y divide-slate-50">
+                                <tr>
+                                    <td colspan="5" class="px-8 py-16 text-center">
+                                        <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                                            <Clock class="w-8 h-8 text-slate-300" />
+                                        </div>
+                                        <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_transactions') }}</h4>
+                                        <p class="text-slate-500 text-sm mb-4">{{ __('no_activity_desc') }}</p>
+
+                                        <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
+                                            <Plus class="w-4 h-4" />
+                                            <span>{{ __('add_transaction') }}</span>
+                                        </Link>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tbody v-else class="divide-y divide-slate-50">
+                                <tr v-for="tx in data.recent_transactions.slice(0, 5)" :key="tx.id" class="group hover:bg-slate-50/80 transition-colors">
+                                    <td class="px-8 py-4 pl-10">
+                                        <div class="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                                            {{ new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-4">
+                                        <div class="text-sm font-normal text-slate-900 group-hover:text-indigo-900 transition-colors">
+                                            {{ tx.description }}
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full" :class="getDotColor(typeof tx.wallet === 'object' ? tx.wallet?.type : 'cash')"></div>
+                                            <span class="text-sm font-semibold text-slate-600">{{ typeof tx.wallet === 'object' ? tx.wallet?.name : (tx.wallet || 'Cash') }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-4">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm" :class="tx.category?.color || 'bg-slate-500'">
+                                            {{ tx.category ? tx.category.name : 'Uncategorized' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-8 py-4 text-right pr-10">
+                                        <span :class="['text-sm font-bold tabular-nums block', tx.type === 'expense' ? 'text-slate-900' : 'text-emerald-600']">
+                                            {{ tx.type === 'expense' ? '-' : '+' }}{{ formatCurrency(tx.amount).split(',')[0] }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                
-                <div class="overflow-x-auto pb-6">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50/50 border-b border-slate-100">
-                            <tr class="text-xs font-bold text-slate-500 tracking-tight">
-                                <th class="px-8 py-4 pl-10">{{ __('date') }}</th>
-                                <th class="px-8 py-4">{{ __('description') }}</th>
-                                <th class="px-8 py-4">{{ __('wallet') }}</th>
-                                <th class="px-8 py-4">{{ __('category') }}</th>
-                                <th class="px-8 py-4 text-right pr-10">{{ __('amount') }}</th>
-                            </tr>
-                        </thead>
-                        <!-- Empty State Table Body -->
-                        <tbody v-if="!hasTransactions" class="divide-y divide-slate-50">
-                             <tr>
-                                <td colspan="5" class="px-8 py-16 text-center">
-                                    <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                                        <Clock class="w-8 h-8 text-slate-300" />
-                                    </div>
-                                    <h4 class="text-slate-900 font-bold text-base mb-1">{{ __('no_transactions') }}</h4>
-                                    <p class="text-slate-500 text-sm mb-4">{{ __('no_activity_desc') }}</p>
-                                    
-                                    <Link href="/transactions" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold transition-all active:scale-95">
-                                        <Plus class="w-4 h-4" />
-                                        <span>{{ __('add_transaction') }}</span>
-                                    </Link>
-                                </td>
-                            </tr>
-                        </tbody>
-                        <tbody v-else class="divide-y divide-slate-50">
-                            <tr v-for="tx in data.recent_transactions.slice(0, 5)" :key="tx.id" class="group hover:bg-slate-50/80 transition-colors">
-                                <td class="px-8 py-4 pl-10">
-                                    <div class="text-sm font-semibold text-slate-700 whitespace-nowrap">
-                                        {{ new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
-                                    </div>
-                                </td>
-                                <td class="px-8 py-4">
-                                    <div class="text-sm font-normal text-slate-900 group-hover:text-indigo-900 transition-colors">
-                                        {{ tx.description }}
-                                    </div>
-                                </td>
-                                <td class="px-8 py-4">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-2 h-2 rounded-full" :class="getDotColor(typeof tx.wallet === 'object' ? tx.wallet?.type : 'cash')"></div>
-                                        <span class="text-sm font-semibold text-slate-600">{{ typeof tx.wallet === 'object' ? tx.wallet?.name : (tx.wallet || 'Cash') }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-8 py-4">
-                                    <span 
-                                        class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm"
-                                        :class="tx.category?.color || 'bg-slate-500'"
-                                    >
-                                        {{ tx.category ? tx.category.name : 'Uncategorized' }}
-                                    </span>
-                                </td>
-                                <td class="px-8 py-4 text-right pr-10">
-                                    <span :class="['text-sm font-bold tabular-nums block', tx.type === 'expense' ? 'text-slate-900' : 'text-emerald-600']">
-                                        {{ tx.type === 'expense' ? '-' : '+' }}{{ formatCurrency(tx.amount).split(',')[0] }}
-                                    </span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-       </div>
+            </Deferred>
+        </div>
 
         <!-- Success Upgrade Celebration Modal -->
         <Teleport to="body">

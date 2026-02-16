@@ -10,10 +10,18 @@ use Carbon\Carbon;
 class BudgetService
 {
     /**
+     * Cache for request-level memoization.
+     */
+    protected array $memo = [];
+    /**
      * Get budgets for a specific month with spent progress.
      */
     public function getMonthlyBudgets(string $month)
     {
+        if (isset($this->memo['budgets_' . $month])) {
+            return $this->memo['budgets_' . $month];
+        }
+
         $startDate = Carbon::parse($month)->startOfMonth();
         $endDate = Carbon::parse($month)->endOfMonth();
 
@@ -27,15 +35,15 @@ class BudgetService
             ->groupBy('category_id')
             ->pluck('total', 'category_id');
 
-        return $budgets->map(function ($budget) use ($spentByCategory) {
-            // Use category_id for matching
+        $result = $budgets->map(function ($budget) use ($spentByCategory) {
             $categoryId = $budget->category_id;
             $spent = (float) ($spentByCategory[$categoryId] ?? 0);
             $percentage = $budget->limit > 0 ? round(($spent / $budget->limit) * 100) : 0;
 
             return [
                 'id' => $budget->id,
-                'category' => $budget->category, // Return full object for frontend
+                'category_id' => $budget->category_id,
+                'category' => $budget->category,
                 'limit' => (float) $budget->limit,
                 'spent' => $spent,
                 'percentage' => $percentage,
@@ -43,6 +51,11 @@ class BudgetService
                 'status' => $this->getBudgetStatus($percentage),
             ];
         });
+
+        // Store intermediate data for reuse in other methods
+        $this->memo['raw_spent_' . $month] = $spentByCategory;
+        
+        return $this->memo['budgets_' . $month] = $result;
     }
 
     /**
@@ -53,25 +66,16 @@ class BudgetService
         $startDate = Carbon::parse($month)->startOfMonth();
         $endDate = Carbon::parse($month)->endOfMonth();
 
-        $totalBudget = Budget::where('user_id', auth()->id())->where('month', $month)->sum('limit');
+        // Use the memoized budgets to avoid redundant queries
+        $budgets = $this->getMonthlyBudgets($month);
+        $spentByCategory = $this->memo['raw_spent_' . $month] ?? collect();
 
-        $totalSpent = Transaction::where('user_id', auth()->id())
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startDate, $endDate])
-            ->sum('amount_in_base_currency');
+        $totalBudget = $budgets->sum('limit');
+        $totalSpent = $spentByCategory->sum();
 
-        // Note: For savings budget, we need to check category types. 
-        // We'll approximate by checking if the related category has type 'income' or specific name? 
-        // Actually savings are usually 'transfers' or specific expense categories.
-        // For now, let's leave savings budget calculation simple or use a join.
-
-        $savingsBudget = Budget::where('user_id', auth()->id())
-            ->where('month', $month)
-            ->whereHas('category', function ($q) {
-                $q->whereIn('name', ['Saving', 'Investment', 'Tabungan', 'Investasi']);
-            })
-            ->sum('limit');
+        $savingsBudget = $budgets->filter(function ($b) {
+            return $b['category'] && in_array($b['category']->name, ['Saving', 'Investment', 'Tabungan', 'Investasi']);
+        })->sum('limit');
 
         $remaining = max(0, $totalBudget - $totalSpent);
         $percentage = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : 0;
@@ -114,10 +118,7 @@ class BudgetService
             ->get();
 
         // Get target month's budgets to avoid suggesting categories that already have a budget
-        $currentBudgets = Budget::where('user_id', auth()->id())
-            ->where('month', $targetMonth)
-            ->pluck('category_id')
-            ->toArray();
+        $currentBudgets = $this->getMonthlyBudgets($targetMonth)->pluck('category_id')->toArray();
 
         return $avgSpending
             ->filter(fn($item) => !in_array($item->category_id, $currentBudgets) && $item->category)

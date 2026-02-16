@@ -1,7 +1,7 @@
 <script setup>
 import Layout from '../../Shared/Layout.vue';
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { Head, useForm, router, usePage } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage, Deferred } from '@inertiajs/vue3';
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
@@ -27,6 +27,17 @@ const props = defineProps({
     filters: Object,
     currentExchangeRate: Number,
     summary: Object
+});
+
+// Robust data handling for deferred props
+const summaryData = computed(() => {
+    return props.summary || {
+        total_income: 0,
+        total_expense: 0,
+        total_income_count: 0,
+        total_expense_count: 0,
+        net_balance: 0
+    };
 });
 
 const showModal = ref(false);
@@ -55,10 +66,8 @@ const mobileNextPageUrl = ref(props.transactions.next_page_url);
 const isLoadingMore = ref(false);
 
 // Watch for prop updates (e.g. search, filter, desktop pagination) to reset mobile list
-watch(() => props.transactions, (newVal) => {
-    mobileTransactions.value = newVal.data;
-    mobileNextPageUrl.value = newVal.next_page_url;
-}, { deep: true });
+// Watcher removed - merged with optimistic watcher logic below
+
 
 const loadMore = async () => {
     if (!mobileNextPageUrl.value || isLoadingMore.value) return;
@@ -284,66 +293,103 @@ const loadMore = async () => {
     const currentMonthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
     const daysPassed = currentDate.getDate();
 
-    const avgIncome = computed(() => props.summary.total_income > 0 ? props.summary.total_income / daysPassed : 0);
-    const avgExpense = computed(() => props.summary.total_expense > 0 ? props.summary.total_expense / daysPassed : 0);
+    const avgIncome = computed(() => summaryData.value.total_income > 0 ? summaryData.value.total_income / daysPassed : 0);
+    const avgExpense = computed(() => summaryData.value.total_expense > 0 ? summaryData.value.total_expense / daysPassed : 0);
     const savingsRate = computed(() => {
-        if (!props.summary.total_income || props.summary.total_income <= 0) return 0;
-        const rate = ((props.summary.total_income - props.summary.total_expense) / props.summary.total_income) * 100;
+        if (!summaryData.value.total_income || summaryData.value.total_income <= 0) return 0;
+        const rate = ((summaryData.value.total_income - summaryData.value.total_expense) / summaryData.value.total_income) * 100;
         return Math.max(0, rate);
     });
 
-    const incomeCount = computed(() => props.summary.total_income_count || 0);
-    const expenseCount = computed(() => props.summary.total_expense_count || 0);
+    const incomeCount = computed(() => summaryData.value.total_income_count || 0);
+    const expenseCount = computed(() => summaryData.value.total_expense_count || 0);
     
-    const deleteTransaction = (transaction) => {
-    Swal.fire({
-        title: __('delete_transaction_title'),
-        text: __('delete_transaction_text'),
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: __('yes_delete'),
-        cancelButtonText: __('cancel'),
-        customClass: {
-            popup: '!rounded-[2rem] !p-10 !bg-white !shadow-2xl !border !border-slate-100 !font-sans !antialiased',
-            title: '!text-xl !font-bold !text-slate-900 !pt-4 !pb-2 !px-0 !m-0 !leading-tight',
-            htmlContainer: '!text-sm !font-semibold !text-slate-500 !leading-relaxed !pb-6 !px-0 !m-0',
-            actions: '!flex !items-center !justify-center !gap-3 !mt-4 !w-full !px-0',
-            confirmButton: '!inline-flex !items-center !justify-center !bg-rose-600 !text-white !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm hover:!shadow-rose-600/20 hover:!bg-rose-700 active:!scale-95 !border-none !outline-none !m-0 !cursor-pointer',
-            cancelButton: '!inline-flex !items-center !justify-center !bg-slate-100 !text-slate-700 hover:!bg-slate-200 !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm !border-none !outline-none !m-0 !cursor-pointer active:!scale-95',
-            icon: '!border-4 !border-rose-100 !text-rose-600 !scale-110 !mb-6 !mt-2'
-        },
-        buttonsStyling: false,
-        backdrop: 'rgba(15, 23, 42, 0.4)'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            router.delete(`/transactions/${transaction.id}`, {
-                onSuccess: () => {
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        didOpen: (toast) => {
-                            toast.addEventListener('mouseenter', Swal.stopTimer)
-                            toast.addEventListener('mouseleave', Swal.resumeTimer)
-                        }
-                    });
-                    Toast.fire({
-                        icon: 'success',
-                        title: __('deleted_title'),
-                        background: '#ffffff',
-                        color: '#1e293b',
-                        customClass: {
-                            popup: 'swal2-toast !rounded-2xl !p-4 shadow-xl border border-slate-100',
-                            title: '!text-sm !font-bold !text-slate-900',
-                        }
-                    });
-                }
-            });
+    // Optimistic Deletion Logic
+    const desktopTransactions = ref(props.transactions.data);
+
+    watch(() => props.transactions, (newVal) => {
+        desktopTransactions.value = newVal.data;
+        // Sync mobile transactions if resetting (not loading more)
+        if (!isLoadingMore.value) {
+           mobileTransactions.value = newVal.data;
         }
-    });
-};
+    }, { deep: true });
+
+    const deleteTransaction = (transaction) => {
+        Swal.fire({
+            title: __('delete_transaction_title') || 'Delete Transaction?',
+            text: __('delete_transaction_confirm') || 'Are you sure you want to delete this transaction?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: __('yes_delete') || 'Yes, delete it',
+            cancelButtonText: __('cancel') || 'Cancel',
+            customClass: {
+                popup: '!rounded-[2rem] !p-10 !bg-white !shadow-2xl !border !border-slate-100 !font-sans !antialiased',
+                title: '!text-xl !font-bold !text-slate-900 !pt-4 !pb-2 !px-0 !m-0 !leading-tight',
+                htmlContainer: '!text-sm !font-semibold !text-slate-500 !leading-relaxed !pb-6 !px-0 !m-0',
+                actions: '!flex !items-center !justify-center !gap-3 !mt-4 !w-full !px-0',
+                confirmButton: '!inline-flex !items-center !justify-center !bg-rose-600 !text-white !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm hover:!shadow-rose-600/20 hover:!bg-rose-700 active:!scale-95 !border-none !outline-none !m-0 !cursor-pointer',
+                cancelButton: '!inline-flex !items-center !justify-center !bg-slate-100 !text-slate-700 hover:!bg-slate-200 !font-bold !text-sm !rounded-xl !px-8 !py-3 !transition-all !shadow-sm !border-none !outline-none !m-0 !cursor-pointer active:!scale-95',
+                icon: '!border-4 !border-rose-100 !text-rose-600 !scale-110 !mb-6 !mt-2'
+            },
+            buttonsStyling: false,
+            backdrop: 'rgba(15, 23, 42, 0.4)'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 1. Optimistic UI Update
+                const originalDesktop = [...desktopTransactions.value];
+                const originalMobile = [...mobileTransactions.value];
+
+                // Remove immediately from UI
+                desktopTransactions.value = desktopTransactions.value.filter(t => t.id !== transaction.id);
+                mobileTransactions.value = mobileTransactions.value.filter(t => t.id !== transaction.id);
+
+                // 2. Background Request
+                router.delete(`/transactions/${transaction.id}`, {
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        // Toast on actual success
+                        const Toast = Swal.mixin({
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            timerProgressBar: true,
+                            didOpen: (toast) => {
+                                toast.addEventListener('mouseenter', Swal.stopTimer)
+                                toast.addEventListener('mouseleave', Swal.resumeTimer)
+                            }
+                        });
+                        Toast.fire({
+                            icon: 'success',
+                            title: __('deleted_title'),
+                            background: '#ffffff',
+                            color: '#1e293b',
+                            customClass: {
+                                popup: 'swal2-toast !rounded-2xl !p-4 shadow-xl border border-slate-100',
+                                title: '!text-sm !font-bold !text-slate-900',
+                            }
+                        });
+                    },
+                    onError: () => {
+                        // 3. Rollback on failure
+                        desktopTransactions.value = originalDesktop;
+                        mobileTransactions.value = originalMobile;
+                        
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'error',
+                            title: __('error_deleting'),
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+                });
+            }
+        });
+    };
     
     const formatIDR = (amount) => {
         return new Intl.NumberFormat('id-ID', {
@@ -577,7 +623,7 @@ const loadMore = async () => {
                             <h3 class="font-bold text-lg text-white/90 tracking-tight">{{ __('total_income') }}</h3>
                         </div>
                         <div class="space-y-1">
-                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summary.total_income) }}</h2>
+                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summaryData.total_income) }}</h2>
                             <div class="flex items-center gap-2 text-emerald-100 font-medium text-sm">
                                 <span>{{ __('income_records') }}</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded-lg text-white text-xs font-bold backdrop-blur-sm border border-white/10">{{ incomeCount }} {{ __('items') }}</span>
@@ -599,7 +645,7 @@ const loadMore = async () => {
                             <h3 class="font-bold text-lg text-white/90 tracking-tight">{{ __('total_expense') }}</h3>
                         </div>
                         <div class="space-y-1">
-                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summary.total_expense) }}</h2>
+                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summaryData.total_expense) }}</h2>
                             <div class="flex items-center gap-2 text-rose-100 font-medium text-sm">
                                 <span>{{ __('expense_records') }}</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded-lg text-white text-xs font-bold backdrop-blur-sm border border-white/10">{{ expenseCount }} {{ __('items') }}</span>
@@ -621,7 +667,7 @@ const loadMore = async () => {
                             <h3 class="font-bold text-lg text-white/90 tracking-tight">{{ __('net_balance') }}</h3>
                         </div>
                         <div class="space-y-1">
-                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summary.net_balance) }}</h2>
+                            <h2 class="text-3xl font-bold tracking-tight tabular-nums">{{ formatIDR(summaryData.net_balance) }}</h2>
                             <div class="flex items-center gap-2 text-indigo-100 font-medium text-sm">
                                 <span>{{ __('savings_efficiency') }}</span>
                                 <span class="bg-white/20 px-2 py-0.5 rounded-lg text-white text-xs font-bold backdrop-blur-sm border border-white/10">{{ savingsRate.toFixed(1) }}%</span>
@@ -699,7 +745,7 @@ const loadMore = async () => {
     
             <!-- Transaction List/Table -->
             <div id="tour-transaction-list" class="">
-                <div v-if="transactions.data.length > 0">
+                <div v-if="desktopTransactions.length > 0">
                     <!-- Desktop Table & Unified Footer -->
                     <div class="hidden md:block bg-white border border-slate-100 rounded-3xl shadow-sm mb-12 overflow-hidden">
                         <div class="overflow-x-auto">
@@ -715,7 +761,7 @@ const loadMore = async () => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50">
-                                    <tr v-for="tx in transactions.data" :key="tx.id" class="group hover:bg-slate-50/80 transition-colors">
+                                    <tr v-for="tx in desktopTransactions" :key="tx.id" class="group hover:bg-slate-50/80 transition-colors">
                                         <!-- Date -->
                                         <td class="px-6 py-4">
                                             <div class="text-sm font-semibold text-slate-700 whitespace-nowrap">
@@ -868,7 +914,7 @@ const loadMore = async () => {
                 </div>
                 
                 <!-- Empty State Card -->
-                <div v-else class="bg-white border border-slate-100 rounded-[2rem] shadow-sm flex flex-col items-center justify-center py-20 text-center">
+                <div v-else class="bg-white border border-slate-100 rounded-[2rem] shadow-sm flex flex-col items-center justify-center py-20 text-center mb-32 md:mb-0">
                     <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
                         <component :is="isFiltered ? Search : TrendingUp" class="w-8 h-8 text-slate-300" />
                     </div>

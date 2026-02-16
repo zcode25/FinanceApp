@@ -2,9 +2,36 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { User, Mail, Lock, Camera, Upload, BadgeCheck } from 'lucide-vue-next';
 import { ref } from 'vue';
+import Swal from 'sweetalert2';
 
     const page = usePage();
     const __ = (key) => page.props.translations?.[key] || key;
+    
+    // Toast Helper
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    const showToast = (title, icon = 'success') => {
+        Toast.fire({
+            icon: icon,
+            title: title,
+            background: '#ffffff',
+            color: '#1e293b',
+            customClass: {
+                popup: 'swal2-toast !rounded-2xl !p-4 shadow-xl border border-slate-100',
+                title: '!text-sm !font-bold !text-slate-900',
+            }
+        });
+    };
     
     const props = defineProps({
         user: Object,
@@ -45,7 +72,7 @@ import { ref } from 'vue';
         profileForm.post('/settings/profile', {
             preserveScroll: true,
             onSuccess: () => {
-                 // Optional: Show toast
+                showToast(__('profile_updated'));
             },
         });
     };
@@ -53,7 +80,10 @@ import { ref } from 'vue';
     const updatePassword = () => {
         passwordForm.put('/settings/password', {
             preserveScroll: true,
-            onSuccess: () => passwordForm.reset(),
+            onSuccess: () => {
+                passwordForm.reset();
+                showToast(__('password_updated'));
+            },
         });
     };
     

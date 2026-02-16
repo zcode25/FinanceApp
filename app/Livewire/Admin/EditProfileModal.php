@@ -8,6 +8,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -20,9 +21,12 @@ class EditProfileModal extends Component implements HasForms
     #[On('open-admin-profile-modal')]
     public function open(): void
     {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
         $this->form->fill([
-            'name' => auth()->user()->name,
-            'email' => auth()->user()->email,
+            'name' => $user?->name,
+            'email' => $user?->email,
         ]);
 
         $this->dispatch('open-modal', id: 'admin-profile-modal');
@@ -31,7 +35,7 @@ class EditProfileModal extends Component implements HasForms
     public function mount(): void
     {
         // Safety check for logout or unauthenticated states
-        if (!auth()->check()) {
+        if (!Auth::check()) {
             return;
         }
     }
@@ -53,14 +57,16 @@ class EditProfileModal extends Component implements HasForms
                     ->email()
                     ->required()
                     ->maxLength(255)
-                    ->unique('users', 'email', ignorable: auth()->user()),
+                    ->unique('users', 'email', ignorable: Auth::user()),
                 TextInput::make('current_password')
                     ->password()
                     ->label('Current Password')
                     ->requiredWith('new_password')
                     ->rule(function () {
                         return function ($attribute, $value, $fail) {
-                            if ($value && !Hash::check($value, auth()->user()->password)) {
+                            /** @var \App\Models\User $user */
+                            $user = Auth::user();
+                            if ($user && $value && !Hash::check($value, $user->password)) {
                                 $fail('The current password does not match our records.');
                             }
                         };
@@ -83,7 +89,8 @@ class EditProfileModal extends Component implements HasForms
     {
         $data = $this->form->getState();
 
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
         $updateData = [
             'name' => $data['name'],

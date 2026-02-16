@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewUserNotification;
 
 class AuthController extends Controller
 {
@@ -37,6 +40,7 @@ class AuthController extends Controller
         if (Auth::attempt(array_merge($credentials, ['is_active' => true]), $request->boolean('remember'))) {
             $request->session()->regenerate();
 
+            /** @var User $user */
             $user = Auth::user();
             $user->update(['last_login_at' => now()]);
 
@@ -97,10 +101,18 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        // Notify Admin of new user
+        try {
+            $adminEmail = env('ADMIN_NOTIFICATION_EMAIL', config('mail.from.address'));
+            Mail::to($adminEmail)->send(new NewUserNotification($user));
+        } catch (\Exception $e) {
+            Log::error('Admin Notification Error: ' . $e->getMessage());
+        }
+
         try {
             event(new Registered($user));
         } catch (\Exception $e) {
-            \Log::error('Mail Error: ' . $e->getMessage());
+            Log::error('Mail Error: ' . $e->getMessage());
         }
 
         Auth::login($user);

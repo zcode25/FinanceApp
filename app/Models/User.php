@@ -147,6 +147,24 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     }
 
     /**
+     * Cache for the latest subscription transaction to avoid duplicate queries.
+     */
+    protected ?SubscriptionTransaction $latestTransactionCache = null;
+
+    protected function getLatestSubscriptionTransaction(): ?SubscriptionTransaction
+    {
+        if ($this->latestTransactionCache === null) {
+            $this->latestTransactionCache = $this->transactions()
+                ->where('status', 'success')
+                ->with('plan')
+                ->latest()
+                ->first() ?: false; // Use false to indicate "empty but checked"
+        }
+
+        return $this->latestTransactionCache === false ? null : $this->latestTransactionCache;
+    }
+
+    /**
      * Get current plan name.
      */
     public function getCurrentPlanNameAttribute(): string
@@ -154,11 +172,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         if (!$this->is_premium)
             return 'Starter';
 
-        $latest = $this->transactions()
-            ->where('status', 'success')
-            ->with('plan')
-            ->latest()
-            ->first();
+        $latest = $this->getLatestSubscriptionTransaction();
 
         return $latest?->plan?->name ?? 'Premium';
     }
@@ -171,11 +185,29 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         if (!$this->is_premium)
             return 1;
 
-        $latest = $this->transactions()
-            ->where('status', 'success')
-            ->latest()
-            ->first();
+        $latest = $this->getLatestSubscriptionTransaction();
 
         return $latest ? (int) $latest->plan_id : 1;
+    }
+
+    /**
+     * Send the email verification notification.
+     *
+     * @return void
+     */
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new \App\Notifications\QueuedVerifyEmail);
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * @param  string  $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new \App\Notifications\QueuedResetPassword($token));
     }
 }

@@ -17,6 +17,10 @@ const props = defineProps({
     theme: {
         type: String,
         default: 'light' // 'light' or 'dark'
+    },
+    error: {
+        type: String,
+        default: ''
     }
 });
 
@@ -27,7 +31,7 @@ const searchQuery = ref('');
 
 // Normalize options to consistent { label, value } format
 const normalizedOptions = computed(() => {
-    return props.options.map(opt => {
+    return (props.options || []).map(opt => {
         if (typeof opt === 'object' && opt !== null) {
             return opt;
         }
@@ -69,7 +73,8 @@ const selectOption = (opt) => {
                 :class="[
                     theme === 'dark' 
                         ? 'bg-white/5 border-white/10 text-white placeholder-indigo-300/50 rounded-2xl border backdrop-blur-md focus:ring-0 focus:border-white/20 transition-all font-semibold text-sm' 
-                        : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm'
+                        : 'bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm',
+                    error ? '!border-rose-500 focus:!border-rose-500 focus:!ring-rose-500/20' : ''
                 ]"
                 :placeholder="(isOpen && !selectedLabel) ? __('search_placeholder') : (selectedLabel ? '' : placeholder)"
                 @focus="isOpen = true"
@@ -85,6 +90,12 @@ const selectOption = (opt) => {
                 <ChevronsUpDown :class="[theme === 'dark' ? 'text-indigo-400' : 'text-slate-400', 'w-5 h-5 transition-colors']" />
             </span>
         </div>
+
+        <!-- Error Message -->
+        <p v-if="error" class="text-rose-500 text-xs mt-1 font-medium ml-1 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+            {{ error }}
+        </p>
 
         <!-- Dropdown -->
         <div 

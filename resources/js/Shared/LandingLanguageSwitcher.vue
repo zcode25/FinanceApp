@@ -36,7 +36,6 @@ const switchLanguage = (lang) => {
         preserveScroll: true,
         onSuccess: () => {
             isOpen.value = false;
-            window.location.reload();
         }
     });
 };

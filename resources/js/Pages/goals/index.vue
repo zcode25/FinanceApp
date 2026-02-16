@@ -42,6 +42,13 @@ const props = defineProps({
     currentExchangeRate: Number,
 });
 
+// Optimistic UI State
+const localGoals = ref([...props.goals]);
+
+watch(() => props.goals, (newVal) => {
+    localGoals.value = [...newVal];
+}, { deep: true });
+
 
 const showModal = ref(false);
 const showUpgradeModal = ref(false);
@@ -131,9 +138,30 @@ const openDetails = (goal) => {
 
 const submitForm = () => {
     if (isEditing.value && editingGoal.value) {
-        form.put(route('goals.update', editingGoal.value.id), {
+        // Optimistic Update
+        const originalGoals = JSON.parse(JSON.stringify(localGoals.value));
+        const index = localGoals.value.findIndex(g => g?.id === editingGoal.value?.id);
+        
+        if (index !== -1) {
+            localGoals.value[index] = {
+                ...localGoals.value[index],
+                name: form.name,
+                target_amount: form.target_amount,
+                type: form.type,
+                target_date: form.target_date,
+                start_date: form.start_date,
+                notes: form.notes,
+                currency: form.currency,
+                wallets: props.wallets.filter(w => form.wallet_ids.includes(w.id)) // Optimistic wallet link
+            };
+        }
+        
+        const goalId = editingGoal.value.id;
+        showModal.value = false; // Just hide, don't clear form yet
+
+        form.put(route('goals.update', goalId), {
             onSuccess: () => {
-                closeModal();
+                closeModal(); // Now clear form
                 Toast.fire({
                     icon: 'success',
                     title: __('goal_updated'),
@@ -145,6 +173,12 @@ const submitForm = () => {
                     }
                 });
             },
+            onError: () => {
+                // Rollback
+                localGoals.value = originalGoals;
+                showModal.value = true; // Re-open modal
+                Toast.fire({ icon: 'error', title: 'Failed to update goal' });
+            }
         });
     } else {
         form.post(route('goals.store'), {
@@ -186,6 +220,10 @@ const deleteGoal = (goal) => {
         backdrop: 'rgba(15, 23, 42, 0.4)'
     }).then((result) => {
         if (result.isConfirmed) {
+            // Optimistic Delete
+            const originalGoals = [...localGoals.value];
+            localGoals.value = localGoals.value.filter(g => g.id !== goal.id);
+
             router.delete(route('goals.destroy', goal.id), {
                 onSuccess: () => {
                     Toast.fire({
@@ -199,13 +237,18 @@ const deleteGoal = (goal) => {
                         }
                     });
                 },
+                onError: () => {
+                    // Rollback
+                    localGoals.value = originalGoals;
+                    Toast.fire({ icon: 'error', title: 'Failed to delete goal' });
+                }
             });
         }
     });
 };
 
 const totalTarget = computed(() => {
-    return props.goals.reduce((sum, goal) => {
+    return localGoals.value.reduce((sum, goal) => {
         let amount = parseFloat(goal.target_amount);
         if (goal.currency === 'USD' && props.currentExchangeRate) {
             amount = amount * props.currentExchangeRate;
@@ -214,7 +257,7 @@ const totalTarget = computed(() => {
     }, 0);
 });
 const totalSaved = computed(() => {
-    return props.goals.reduce((sum, goal) => {
+    return localGoals.value.reduce((sum, goal) => {
         // Calculate saved amount for this goal based on linked wallets w/ conversion
         const goalSavedIDR = goal.wallets.reduce((wSum, wallet) => {
              let wBalance = parseFloat(wallet.balance);
@@ -511,8 +554,8 @@ watch(() => page.url, () => {
             <!-- GOAL LIST -->
             <!-- GOAL LIST SECTION -->
             <div id="tour-goals-section">
-                <div v-if="goals.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-24">
-                <div v-for="goal in goals" :key="goal.id" @click="openDetailsMobile(goal)" class="group bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-8 hover:shadow-xl hover:shadow-slate-100 transition-all duration-500 relative overflow-hidden cursor-pointer md:cursor-default active:scale-[0.98] active:md:scale-100">
+                <div v-if="localGoals.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-24">
+                <div v-for="goal in localGoals" :key="goal.id" @click="openDetailsMobile(goal)" class="group bg-white border border-slate-100 rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-8 hover:shadow-xl hover:shadow-slate-100 transition-all duration-500 relative overflow-hidden cursor-pointer md:cursor-default active:scale-[0.98] active:md:scale-100">
 
                     <div class="flex items-start justify-between relative z-10">
                         <div class="flex gap-4 md:gap-6">

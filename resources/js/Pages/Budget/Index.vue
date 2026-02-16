@@ -1,7 +1,7 @@
 <script setup>
 import Layout from '../../Shared/Layout.vue';
 import Swal from 'sweetalert2';
-import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage, Deferred } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 
 const page = usePage();
@@ -81,14 +81,29 @@ import CurrencyInput from '../../Shared/CurrencyInput.vue';
 import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
 
 const props = defineProps({
-    budgets: Array,
+    deferred_budgets: Object,
+    deferred_recommendations: Object,
     summary: Object,
-    recommendations: Array,
     categories: Array,
     filters: Object,
     is_premium: Boolean,
     auto_setup_usage: Number
 });
+
+// Centralized safe data access
+const data = computed(() => {
+    return {
+        // budgets: props.deferred_budgets || [], // Now handled by localBudgets
+        recommendations: props.deferred_recommendations || []
+    };
+});
+
+// Optimistic State
+const localBudgets = ref([]);
+
+watch(() => props.deferred_budgets, (newBudgets) => {
+    localBudgets.value = newBudgets || [];
+}, { immediate: true, deep: true });
 
 const showModal = ref(false);
 const isEditing = ref(false);
@@ -143,8 +158,8 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
 
     const filteredRecommendations = computed(() => {
         // Strict filtering: If a category is in the current month's budget list, DO NOT show it in recommendations
-        const existingIds = props.budgets.map(b => b.category ? b.category.id : b.category_id);
-        return props.recommendations.filter(rec => !existingIds.includes(rec.category_id));
+        const existingIds = (data.value.budgets || []).map(b => b.category ? b.category.id : b.category_id);
+        return data.value.recommendations.filter(rec => !existingIds.includes(rec.category_id));
     });
 
     const nextRec = () => {
@@ -332,10 +347,13 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
     });
     
     const changeMonth = (delta) => {
-        const [year, month] = props.filters.month.split('-').map(Number);
+        const [year, month] = (props.filters.month || '').split('-').map(Number);
         const date = new Date(year, month - 1 + delta, 1);
         const newMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        router.get('/budget', { month: newMonth }, { preserveState: true });
+        router.get('/budget', { month: newMonth }, { 
+            preserveState: true,
+            only: ['deferred_budgets', 'deferred_recommendations', 'summary', 'filters']
+        });
     };
     
     // Actions
@@ -361,12 +379,12 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
     
     const deleteBudget = (id) => {
         Swal.fire({
-            title: __('delete_budget_title'),
-            text: __('delete_budget_confirm'),
+            title: __('delete_budget_title') || 'Delete Budget?',
+            text: __('delete_budget_confirm') || 'Are you sure you want to delete this budget?',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: __('yes_delete'),
-            cancelButtonText: __('cancel'),
+            confirmButtonText: __('yes_delete') || 'Yes, delete it',
+            cancelButtonText: __('cancel') || 'Cancel',
             customClass: {
                 popup: '!rounded-[2rem] !p-10 !bg-white !shadow-2xl !border !border-slate-100 !font-sans !antialiased',
                 title: '!text-xl !font-bold !text-slate-900 !pt-4 !pb-2 !px-0 !m-0 !leading-tight',
@@ -380,7 +398,14 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
             backdrop: 'rgba(15, 23, 42, 0.4)'
         }).then((result) => {
             if (result.isConfirmed) {
+                // Optimistic Delete
+                const originalBudgets = [...localBudgets.value];
+                localBudgets.value = localBudgets.value.filter(b => b.id !== id);
+
+                // Background Request
                 router.delete(`/budget/${id}`, {
+                    preserveScroll: true,
+                    preserveState: true,
                     onSuccess: () => {
                         const Toast = Swal.mixin({
                             toast: true,
@@ -403,6 +428,11 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                                 title: '!text-sm !font-bold !text-slate-900',
                             }
                         });
+                    },
+                    onError: () => {
+                        // Rollback
+                        localBudgets.value = originalBudgets;
+                        showToast(__('error_deleting'), 'error');
                     }
                 });
             }
@@ -415,12 +445,31 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
         // Usually update uses PUT /budget/{id}
         
         if (isEditing.value && editingBudgetId.value) {
+            // Optimistic Update
+            const originalBudgets = JSON.parse(JSON.stringify(localBudgets.value));
+            const budgetIndex = localBudgets.value.findIndex(b => b.id === editingBudgetId.value);
+            
+            if (budgetIndex !== -1) {
+                // Update local state immediately
+                localBudgets.value[budgetIndex].limit = form.limit;
+                // We might also need to update category if it changed, but form.category_id handling 
+                // requires looking up the category object which might be complex here.
+                // For now, assuming primarily Limit updates for optimistic feel.
+            }
+
             form.put(`/budget/${editingBudgetId.value}`, {
+                preserveScroll: true, 
+                preserveState: true,
                 onSuccess: () => {
                     showModal.value = false;
                     form.reset();
                     editingBudgetId.value = null;
                     showToast(__('budget_updated') || 'Budget updated successfully');
+                },
+                onError: () => {
+                    // Rollback
+                    localBudgets.value = originalBudgets;
+                    showToast(__('error_updating'), 'error');
                 }
             });
         } else {
@@ -503,22 +552,21 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
             default: return __('status_on_track');
         }
     };
-    
-    const availableCategories = computed(() => {
-        // Filter out categories that already have a budget for this month
-        // We exclude the current budget being edited from the "exclusion list"
-        const existingBudgetCategoryIds = props.budgets
+
+    const existingBudgetCategoryIds = computed(() => {
+        return localBudgets.value
             .filter(b => {
-                // If editing, skip the current budget (so its category remains available)
                 if (isEditing.value && editingBudgetId.value && b.id === editingBudgetId.value) {
                     return false;
                 }
                 return true;
             })
-            .map(b => b.category ? b.category.id : null)
+            .map(b => b.category ? b.category.id : b.category_id)
             .filter(id => id !== null);
-            
-        return props.categories.filter(c => !existingBudgetCategoryIds.includes(c.id));
+    });
+
+    const availableCategories = computed(() => {
+        return props.categories.filter(c => !existingBudgetCategoryIds.value.includes(c.id));
     });
 
 
@@ -646,7 +694,40 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
             </section>
     
             <!-- AI Recommendations (Carousel) -->
-            <section v-if="is_premium ? (filteredRecommendations.length > 0) : true" class="mb-12">
+            <Deferred data="deferred_recommendations">
+                <template #fallback>
+                    <div class="mb-12 animate-pulse">
+                        <div class="flex items-center justify-between mb-8">
+                            <div class="space-y-4">
+                                <div class="h-8 w-64 bg-slate-100 rounded-2xl"></div>
+                                <div class="h-4 w-48 bg-slate-50 rounded-xl"></div>
+                            </div>
+                            <div class="flex gap-3">
+                                <div class="w-10 h-10 bg-slate-50 rounded-xl"></div>
+                                <div class="w-10 h-10 bg-slate-50 rounded-xl"></div>
+                            </div>
+                        </div>
+                        <!-- Carousel Cards Skeleton -->
+                        <div class="flex gap-6 overflow-hidden">
+                            <div v-for="i in 3" :key="i" class="w-[85vw] md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] shrink-0 h-72 bg-slate-50 rounded-[2rem] border border-slate-100 relative p-8 flex flex-col justify-between">
+                                <div class="flex justify-between items-start">
+                                    <div class="space-y-3">
+                                        <div class="h-6 w-24 bg-slate-200 rounded-full opacity-50"></div>
+                                        <div class="h-8 w-40 bg-slate-200 rounded-xl"></div>
+                                    </div>
+                                    <div class="w-12 h-12 bg-slate-200 rounded-2xl opacity-50"></div>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="h-4 w-full bg-slate-200 rounded-lg opacity-30"></div>
+                                    <div class="h-4 w-2/3 bg-slate-200 rounded-lg opacity-30"></div>
+                                </div>
+                                <div class="h-12 w-full bg-slate-200 rounded-2xl opacity-20"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <section v-if="is_premium ? (filteredRecommendations.length > 0) : true" class="mb-12">
                 <div class="flex items-center justify-between mb-8">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ __('smart_recommendations') }}</h2>
@@ -736,7 +817,6 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                                     </div>
                                     <div class="space-y-2 flex-1">
                                         <div class="h-3 w-20 bg-slate-200/50 rounded"></div>
-                                        <div class="h-4 w-24 bg-slate-100/50 rounded"></div>
                                     </div>
                                 </div>
                             </div>
@@ -747,9 +827,42 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                     </div>
                 </div>
             </section>
+        </Deferred>
     
             <!-- Current Budgets -->
-            <section class="pb-20">
+            <Deferred data="deferred_budgets">
+                <template #fallback>
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div class="h-8 w-48 bg-slate-100 rounded-xl animate-pulse"></div>
+                            <div class="h-10 w-32 bg-slate-100 rounded-xl animate-pulse"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div v-for="i in 6" :key="i" class="bg-white rounded-[2rem] p-6 border border-slate-100 space-y-4 relative overflow-hidden">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-2xl bg-slate-50 animate-pulse"></div>
+                                        <div class="space-y-2">
+                                            <div class="h-5 w-32 bg-slate-50 rounded-lg animate-pulse"></div>
+                                            <div class="h-3 w-20 bg-slate-50 rounded-lg animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div class="w-8 h-8 rounded-lg bg-slate-50 animate-pulse"></div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between">
+                                        <div class="h-4 w-16 bg-slate-50 rounded animate-pulse"></div>
+                                        <div class="h-4 w-16 bg-slate-50 rounded animate-pulse"></div>
+                                    </div>
+                                    <div class="h-3 w-full bg-slate-50 rounded-full animate-pulse"></div>
+                                </div>
+                                <div class="h-12 w-full bg-slate-50 rounded-xl animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <section class="pb-20">
                 <div class="flex items-center gap-4 mb-8">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ __('monthly_allocation') }}</h2>
@@ -757,9 +870,9 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                     </div>
                 </div>
     
-                <div v-if="budgets.length > 0" class="grid grid-cols-1 gap-4 mb-24 md:mb-0">
+                <div v-if="localBudgets.length > 0" class="grid grid-cols-1 gap-4 mb-24 md:mb-0">
                     <div 
-                        v-for="budget in budgets" 
+                        v-for="budget in localBudgets" 
                         :key="budget.id"
                         @click="openDetailsMobile(budget)"
                         class="bg-white rounded-[1.5rem] p-5 md:p-6 border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:border-indigo-100 transition-all duration-300 group cursor-pointer md:cursor-default active:scale-[0.98] active:md:scale-100"
@@ -826,9 +939,9 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                     <div class="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg shadow-slate-200/50 border border-slate-100">
                         <AlertCircle class="w-8 h-8 text-slate-300" />
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-slate-900 mb-2">{{ __('no_active_budgets') }}</h3>
-                        <p class="text-slate-500 text-sm max-w-sm mx-auto font-medium">{{ __('no_active_budgets_desc') }}</p>
+                    <div class="space-y-1">
+                        <h2 class="text-base font-bold text-slate-900">{{ __('no_budgets_title') }}</h2>
+                        <p class="text-slate-500 max-w-sm mx-auto font-medium text-sm">{{ __('no_budgets_desc') }}</p>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-4 pt-2">
                         <div class="relative">
@@ -846,6 +959,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                     </div>
                 </div>
             </section>
+        </Deferred>
     
             <Teleport to="body">
                 <div v-if="showAutoSetupModal" class="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">

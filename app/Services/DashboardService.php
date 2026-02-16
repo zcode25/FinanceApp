@@ -5,93 +5,166 @@ namespace App\Services;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Models\Budget;
+use App\Models\Category;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardService
 {
     protected $exchangeRateService;
+    protected $walletsCache = null;
 
     public function __construct(ExchangeRateService $exchangeRateService)
     {
         $this->exchangeRateService = $exchangeRateService;
     }
 
-    public function getDashboardData($month = null)
+    public function getBasicData($month = null)
     {
         $now = Carbon::now();
         $selectedDate = $month ? Carbon::parse($month . '-01') : $now;
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
         $monthStr = $selectedDate->format('Y-m');
-        $userId = auth()->id();
+        
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userId = $user?->id;
 
-        // 1. Total Net Worth & Lifetime Stats (All Time)
-        $totalNetWorth = $this->getTotalNetWorth($userId);
-        $lifetimeStats = $this->getLifetimeStats($userId);
-
-        // 2. Monthly Stats (For Selected Month)
-        $monthlyStats = $this->getMonthlyStats($userId, $startOfMonth, $endOfMonth);
-
+        $stats = $this->getAggregatedStats($userId, $startOfMonth, $endOfMonth);
         $totalBudget = Budget::where('user_id', $userId)->where('month', $monthStr)->sum('limit');
+        
+        $wallets = $this->getCachedWallets($userId);
+        $totalNetWorth = $this->getTotalNetWorth($wallets);
 
-        $savingsRate = $lifetimeStats['income'] > 0
-            ? round((($lifetimeStats['income'] - $lifetimeStats['expense']) / $lifetimeStats['income']) * 100)
+        $savingsRate = $stats->lifetime_income > 0
+            ? round((($stats->lifetime_income - $stats->lifetime_expense) / $stats->lifetime_income) * 100)
             : 0;
-
-        // 3. Daily Trend Statistics
-        $trends = $this->getDailyTrends($userId, $selectedDate);
-
-        // 4. Wallet Distribution
-        $walletDistribution = $this->getWalletDistribution($userId);
-
-        // 5. Recent Transactions
-        $recentTransactions = $this->getRecentTransactions($userId, $startOfMonth, $endOfMonth);
-
-        // 6. Category Breakdown
-        $categoryBreakdown = $this->getCategoryBreakdown($userId, $startOfMonth, $endOfMonth);
-
-        // 7. Emergency Fund Calculation
-        $emergencyFundMonths = $this->getEmergencyFundStats($userId, $totalNetWorth);
-
-        // 8. Available Months
-        $availableMonths = $this->getAvailableMonths($userId, $now);
 
         return [
             'summary' => [
                 'net_worth' => (float) $totalNetWorth,
                 'lifetime_savings_rate' => $savingsRate,
-                'emergency_fund_months' => (float) $emergencyFundMonths,
-                'monthly_income' => (float) $monthlyStats['income'],
-                'monthly_expense' => (float) $monthlyStats['expense'],
-                'monthly_net_savings' => (float) ($monthlyStats['income'] - $monthlyStats['expense']),
+                'emergency_fund_months' => $stats->last_3_months_expense > 0 ? round($totalNetWorth / ($stats->last_3_months_expense / 3), 1) : 0,
+                'monthly_income' => (float) $stats->monthly_income,
+                'monthly_expense' => (float) $stats->monthly_expense,
+                'monthly_net_savings' => (float) ($stats->monthly_income - $stats->monthly_expense),
                 'budget_limit' => (float) $totalBudget,
-                'burn_rate' => $totalBudget > 0 ? round(($monthlyStats['expense'] / $totalBudget) * 100) : 0,
+                'burn_rate' => $totalBudget > 0 ? round(($stats->monthly_expense / $totalBudget) * 100) : 0,
                 'selected_month' => $monthStr,
                 'selected_month_label' => $selectedDate->translatedFormat('F Y')
             ],
-            'charts' => [
-                'labels' => $trends['labels'],
-                'income' => $trends['income'],
-                'expense' => $trends['expense'],
-            ],
-            'wallets' => $walletDistribution,
-            'categories' => $categoryBreakdown,
-            'recent_transactions' => $recentTransactions,
-            'available_months' => $availableMonths,
+            'available_months' => $this->getAvailableMonths($userId, $now),
             'subscription' => [
-                'is_premium' => (bool) (auth()->user()?->is_premium),
-                'plan_id' => auth()->user()?->current_plan_id ?? 1,
-                'plan_name' => auth()->user()?->current_plan_name ?? 'Starter',
-                'subscription_until' => auth()->user()?->subscription_until ? auth()->user()->subscription_until->format('d M Y') : (auth()->user()?->is_premium ? 'Lifetime' : null),
-                'days_remaining' => auth()->user()?->days_remaining ?? 0,
+                'is_premium' => (bool) ($user?->is_premium),
+                'plan_id' => $user?->current_plan_id ?? 1,
+                'plan_name' => $user?->current_plan_name ?? 'Starter',
+                'subscription_until' => $user?->subscription_until ? $user->subscription_until->format('d M Y') : ($user?->is_premium ? 'Lifetime' : null),
+                'days_remaining' => $user?->days_remaining ?? 0,
             ],
         ];
     }
 
-    private function getTotalNetWorth($userId)
+    public function getChartsData($month = null)
     {
-        $wallets = Wallet::where('user_id', $userId)->where('is_active', true)->get();
+        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userId = $user?->id;
+
+        $trends = $this->getDailyTrends($userId, $selectedDate);
+
+        return [
+            'labels' => $trends['labels'],
+            'income' => $trends['income'],
+            'expense' => $trends['expense'],
+        ];
+    }
+
+    public function getBreakdownData($month = null)
+    {
+        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        $startOfMonth = $selectedDate->copy()->startOfMonth();
+        $endOfMonth = $selectedDate->copy()->endOfMonth();
+        
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userId = $user?->id;
+
+        $wallets = $this->getCachedWallets($userId);
+        
+        $categoryBreakdownRaw = Transaction::where('user_id', $userId)
+            ->where('is_active', true)
+            ->where('type', 'expense')
+            ->whereBetween('date', [$startOfMonth, $endOfMonth])
+            ->select('category_id', DB::raw('SUM(amount_in_base_currency) as total'))
+            ->groupBy('category_id')
+            ->orderBy('total', 'desc')
+            ->limit(5)
+            ->get();
+
+        $categoryIds = $categoryBreakdownRaw->pluck('category_id')->filter()->unique();
+        $categoriesById = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+
+        $categories = $categoryBreakdownRaw->map(function ($item) use ($categoriesById) {
+            $cat = $categoriesById->get($item->category_id);
+            return [
+                'category_id' => $item->category_id,
+                'total' => $item->total,
+                'category' => $cat ? $cat->name : 'Unknown',
+                'color' => $cat ? $cat->color : 'bg-gray-500'
+            ];
+        });
+
+        return [
+            'wallets' => $this->getWalletDistribution($wallets),
+            'categories' => $categories,
+        ];
+    }
+
+    public function getRecentTransactions($month = null)
+    {
+        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        $startOfMonth = $selectedDate->copy()->startOfMonth();
+        $endOfMonth = $selectedDate->copy()->endOfMonth();
+        
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userId = $user?->id;
+
+        $recentTransactions = Transaction::where('user_id', $userId)
+            ->where('is_active', true)
+            ->whereBetween('date', [$startOfMonth, $endOfMonth])
+            ->orderBy('date', 'desc')
+            ->limit(5)
+            ->get();
+
+        $walletsById = $this->getCachedWallets($userId)->keyBy('id');
+        
+        $categoryIds = $recentTransactions->pluck('category_id')->filter()->unique();
+        $categoriesById = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+
+        $recentTransactions->each(function ($tx) use ($walletsById, $categoriesById) {
+            $tx->setRelation('wallet', $walletsById->get($tx->wallet_id));
+            $tx->setRelation('category', $categoriesById->get($tx->category_id));
+        });
+
+        return $recentTransactions;
+    }
+
+    protected function getCachedWallets($userId)
+    {
+        if ($this->walletsCache === null) {
+            $this->walletsCache = Wallet::where('user_id', $userId)->where('is_active', true)->get();
+        }
+        return $this->walletsCache;
+    }
+
+
+    private function getTotalNetWorth($wallets)
+    {
         $totalNetWorth = 0;
         foreach ($wallets as $wallet) {
             if ($wallet->currency === 'IDR') {
@@ -104,71 +177,55 @@ class DashboardService
         return $totalNetWorth;
     }
 
-    private function getLifetimeStats($userId)
+    private function getAggregatedStats($userId, $startOfMonth, $endOfMonth)
     {
-        $income = Transaction::where('user_id', $userId)
+        $last3Months = Carbon::now()->subMonths(3);
+
+        return Transaction::where('user_id', $userId)
             ->where('is_active', true)
-            ->where('type', 'income')
-            ->sum('amount_in_base_currency');
-
-        $expense = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->sum('amount_in_base_currency');
-
-        return ['income' => $income, 'expense' => $expense];
-    }
-
-    private function getMonthlyStats($userId, $startOfMonth, $endOfMonth)
-    {
-        $income = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->where('type', 'income')
-            ->whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->sum('amount_in_base_currency');
-
-        $expense = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->sum('amount_in_base_currency');
-
-        return ['income' => $income, 'expense' => $expense];
+            ->selectRaw("
+                SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as lifetime_income,
+                SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as lifetime_expense,
+                SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount_in_base_currency ELSE 0 END) as monthly_income,
+                SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN amount_in_base_currency ELSE 0 END) as monthly_expense,
+                SUM(CASE WHEN type = 'expense' AND date >= ? THEN amount_in_base_currency ELSE 0 END) as last_3_months_expense
+            ", [$startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $last3Months])
+            ->first();
     }
 
     private function getDailyTrends($userId, $selectedDate)
     {
         $daysInMonth = $selectedDate->daysInMonth;
+        $monthStr = $selectedDate->format('Y-m');
+        
+        $dailyData = Transaction::where('user_id', $userId)
+            ->where('is_active', true)
+            ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$monthStr])
+            ->select(
+                DB::raw("DAY(date) as day"),
+                DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
+                DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
+            )
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+
         $trendLabels = [];
         $trendIncome = [];
         $trendExpense = [];
 
         for ($d = 1; $d <= $daysInMonth; $d++) {
-            $currentDate = $selectedDate->copy()->day($d);
-            $dayStr = $currentDate->format('d');
-            $dateFull = $currentDate->toDateString();
-
-            $trendLabels[] = $dayStr;
-
-            $stats = Transaction::where('user_id', $userId)
-                ->where('is_active', true)
-                ->whereRaw('DATE(date) = ?', [$dateFull])
-                ->select(
-                    DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
-                    DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
-                )
-                ->first();
-
-            $trendIncome[] = (float) ($stats->income ?? 0);
-            $trendExpense[] = (float) ($stats->expense ?? 0);
+            $trendLabels[] = str_pad($d, 2, '0', STR_PAD_LEFT);
+            $dayData = $dailyData->get($d);
+            $trendIncome[] = (float) ($dayData->income ?? 0);
+            $trendExpense[] = (float) ($dayData->expense ?? 0);
         }
 
         return ['labels' => $trendLabels, 'income' => $trendIncome, 'expense' => $trendExpense];
     }
 
-    private function getWalletDistribution($userId)
+    private function getWalletDistribution($wallets)
     {
-        $wallets = Wallet::where('user_id', $userId)->where('is_active', true)->get();
         return $wallets->map(function ($w) {
             $balanceInIdr = $w->currency === 'IDR'
                 ? $w->balance
@@ -182,50 +239,6 @@ class DashboardService
                 'color' => $w->color ?? 'bg-indigo-500'
             ];
         });
-    }
-
-    private function getRecentTransactions($userId, $startOfMonth, $endOfMonth)
-    {
-        return Transaction::with(['wallet', 'category'])
-            ->where('user_id', $userId)
-            ->where('is_active', true)
-            ->whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->orderBy('date', 'desc')
-            ->limit(5)
-            ->get();
-    }
-
-    private function getCategoryBreakdown($userId, $startOfMonth, $endOfMonth)
-    {
-        return Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->with('category')
-            ->select('category_id', DB::raw('SUM(amount_in_base_currency) as total'))
-            ->groupBy('category_id')
-            ->orderBy('total', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'category_id' => $item->category_id,
-                    'total' => $item->total,
-                    'category' => $item->category ? $item->category->name : 'Unknown',
-                    'color' => $item->category ? $item->category->color : 'bg-gray-500'
-                ];
-            });
-    }
-
-    private function getEmergencyFundStats($userId, $totalNetWorth)
-    {
-        $avgExpense = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [Carbon::now()->subMonths(3), Carbon::now()])
-            ->sum('amount_in_base_currency') / 3;
-
-        return $avgExpense > 0 ? round($totalNetWorth / $avgExpense, 1) : 0;
     }
 
     private function getAvailableMonths($userId, $now)

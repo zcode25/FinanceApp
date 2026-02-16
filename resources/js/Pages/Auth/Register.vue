@@ -1,9 +1,13 @@
 <script setup>
 import { Head, useForm, Link, usePage } from '@inertiajs/vue3';
-import { Lock, Mail, User, ArrowRight, CheckCircle2, Rocket, Crown, Zap, ShieldCheck, Sparkles, Check } from 'lucide-vue-next';
+import { Lock, Mail, User, ArrowRight, CheckCircle2, Rocket, Crown, Zap, ShieldCheck, Sparkles, Check, Eye, EyeOff } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { __ } from '@/Plugins/i18n';
+import { getLocalizedPlans } from '@/Utilities/plans';
+
+// Import CSS
+import '@/../css/landing.css';
 
 const page = usePage();
 const query = computed(() => new URLSearchParams(window.location.search));
@@ -16,85 +20,10 @@ const props = defineProps({
     plans: Array,
 });
 
-const formatPrice = (price) => {
-    if (price === 0) return 'Rp 0';
-    return 'Rp ' + new Intl.NumberFormat('id-ID').format(price);
-};
+const showPassword = ref(false);
+const showPasswordConfirmation = ref(false);
 
-const plansData = [
-    {
-        id: 1,
-        name: 'Starter',
-        period: '/forever',
-        description: __('starter_plan_desc'),
-        icon: CheckCircle2,
-        color: 'slate',
-        features: [
-            __('feature_3_wallets'),
-            __('feature_3_categories'),
-            __('feature_3_months'),
-            __('feature_dashboard'),
-            __('feature_standard_budgeting')
-        ]
-    },
-    {
-        id: 2,
-        name: 'Professional',
-        period: '/month',
-        description: __('pro_plan_desc'),
-        icon: Rocket,
-        color: 'indigo',
-        features: [
-            __('feature_unlimited_wallets'),
-            __('feature_ai_recs'),
-            __('feature_full_history'),
-            __('feature_exports'),
-            __('feature_ledger')
-        ]
-    },
-    {
-        id: 3,
-        name: 'Master',
-        period: '/year',
-        description: __('master_plan_desc'),
-        icon: Crown,
-        color: 'emerald',
-        features: [
-            __('feature_pro_included'),
-            __('feature_unlimited_categories'),
-            __('feature_priority_support'),
-            __('feature_verified_badge'),
-            __('feature_save_17')
-        ]
-    },
-    {
-        id: 4,
-        name: 'Lifetime',
-        period: 'once',
-        description: __('lifetime_plan_desc'),
-        icon: Zap,
-        color: 'purple',
-        features: [
-            __('feature_master_included'),
-            __('feature_lifetime_updates'),
-            __('feature_founder_status'),
-            __('feature_early_access'),
-            __('feature_one_time')
-        ]
-    }
-];
-
-const plans = computed(() => {
-    return plansData.map(pData => {
-        const dbPlan = props.plans?.find(p => parseInt(p.id) === parseInt(pData.id));
-        return {
-            ...pData,
-            name: dbPlan?.name ?? pData.name,
-            price: formatPrice(dbPlan?.price ?? 0)
-        };
-    });
-});
-
+const plans = computed(() => getLocalizedPlans(props.plans));
 const selectedPlan = computed(() => plans.value.find(p => p.id === selectedPlanId.value) || plans.value[0]);
 
 const form = useForm({
@@ -178,11 +107,19 @@ const submit = () => {
                                 <Lock class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input 
                                     v-model="form.password"
-                                    type="password" 
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
+                                    :type="showPassword ? 'text' : 'password'" 
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-12 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
                                     placeholder="••••••••"
                                     @input="form.clearErrors('password')"
                                 >
+                                <button 
+                                    type="button"
+                                    @click="showPassword = !showPassword"
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    <Eye v-if="!showPassword" class="w-4 h-4" />
+                                    <EyeOff v-else class="w-4 h-4" />
+                                </button>
                             </div>
                             <div v-if="form.errors.password" class="mt-2 text-[11px] font-bold text-rose-500 ml-1">
                                 {{ form.errors.password }}
@@ -194,11 +131,19 @@ const submit = () => {
                                 <Lock class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                                 <input 
                                     v-model="form.password_confirmation"
-                                    type="password" 
-                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
+                                    :type="showPasswordConfirmation ? 'text' : 'password'" 
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-12 py-3.5 text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-semibold text-sm"
                                     placeholder="••••••••"
                                     @input="form.clearErrors('password')"
                                 >
+                                <button 
+                                    type="button"
+                                    @click="showPasswordConfirmation = !showPasswordConfirmation"
+                                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    <Eye v-if="!showPasswordConfirmation" class="w-4 h-4" />
+                                    <EyeOff v-else class="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -222,7 +167,7 @@ const submit = () => {
 
                 <div class="mt-10 pt-8 border-t border-slate-100 text-center text-[13px] font-bold text-slate-400">
                     {{ __('already_inner_circle') }} 
-                    <Link :href="route('login')" class="text-indigo-600 hover:text-indigo-700 transition-colors ml-1 underline decoration-2 underline-offset-4">
+                    <Link :href="route('login')" prefetch class="text-indigo-600 hover:text-indigo-700 transition-colors ml-1 underline decoration-2 underline-offset-4">
                         {{ __('login') }}
                     </Link>
                 </div>

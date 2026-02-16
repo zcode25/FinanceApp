@@ -19,12 +19,22 @@ class SettingsController extends Controller
 {
     public function index()
     {
+        $userId = Auth::id();
+        
+        // Consolidate 3 counts into 1 query using sub-selects
+        $stats = DB::selectOne("
+            SELECT 
+                (SELECT COUNT(*) FROM transactions WHERE user_id = :u1) as transactions_count,
+                (SELECT COUNT(*) FROM wallets WHERE user_id = :u2) as wallets_count,
+                (SELECT COUNT(*) FROM budgets WHERE user_id = :u3) as budgets_count
+        ", ['u1' => $userId, 'u2' => $userId, 'u3' => $userId]);
+
         return Inertia::render('Settings/Index', [
             'user' => Auth::user(),
             'stats' => [
-                'transactions' => Transaction::where('user_id', Auth::id())->count(),
-                'wallets' => Wallet::where('user_id', Auth::id())->count(),
-                'budgets' => Budget::where('user_id', Auth::id())->count(),
+                'transactions' => (int) $stats->transactions_count,
+                'wallets' => (int) $stats->wallets_count,
+                'budgets' => (int) $stats->budgets_count,
             ]
         ]);
     }

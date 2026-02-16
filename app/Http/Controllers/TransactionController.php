@@ -21,42 +21,6 @@ class TransactionController extends Controller
             ->orderBy('date', 'desc')
             ->orderBy('created_at', 'desc');
 
-        // Summary calculations (unaffected by search/filters)
-        $summaryQuery = Transaction::where('user_id', $request->user()->id)
-            ->where('is_active', true);
-
-        $totalIncome = (clone $summaryQuery)->where('type', 'income')->sum('amount_in_base_currency');
-        $totalExpense = (clone $summaryQuery)->where('type', 'expense')->sum('amount_in_base_currency');
-        $totalIncomeCount = (clone $summaryQuery)->where('type', 'income')->count();
-        $totalExpenseCount = (clone $summaryQuery)->where('type', 'expense')->count();
-
-        // Apply filters only to the list query
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                    ->orWhereHas('category', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->filled('wallet_id')) {
-            $query->where('wallet_id', $request->input('wallet_id'));
-        }
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
-        }
-
-        if ($request->filled('start_date')) {
-            $query->whereDate('date', '>=', $request->input('start_date'));
-        }
-
-        if ($request->filled('end_date')) {
-            $query->whereDate('date', '<=', $request->input('end_date'));
-        }
-
         $exchangeRateService = app(ExchangeRateService::class);
         $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
 
@@ -68,13 +32,29 @@ class TransactionController extends Controller
             'categories' => Category::forUser($request->user()->id)->get(),
             'wallets' => Wallet::where('user_id', $request->user()->id)->where('is_active', true)->get(),
             'currentExchangeRate' => $currentRate,
-            'summary' => [
-                'total_income' => (float) $totalIncome,
-                'total_expense' => (float) $totalExpense,
-                'total_income_count' => $totalIncomeCount,
-                'total_expense_count' => $totalExpenseCount,
-                'net_balance' => (float) ($totalIncome - $totalExpense),
-            ]
+            'summary' => Inertia::defer(function () use ($request) {
+                // Calculate summary only when requested
+                $summary = Transaction::where('user_id', $request->user()->id)
+                    ->where('is_active', true)
+                    ->select(
+                        DB::raw('SUM(CASE WHEN type = "income" THEN amount_in_base_currency ELSE 0 END) as total_income'),
+                        DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency ELSE 0 END) as total_expense'),
+                        DB::raw('COUNT(CASE WHEN type = "income" THEN 1 END) as total_income_count'),
+                        DB::raw('COUNT(CASE WHEN type = "expense" THEN 1 END) as total_expense_count')
+                    )
+                    ->first();
+
+                $totalIncome = $summary->total_income ?? 0;
+                $totalExpense = $summary->total_expense ?? 0;
+                
+                return [
+                    'total_income' => (float) $totalIncome,
+                    'total_expense' => (float) $totalExpense,
+                    'total_income_count' => $summary->total_income_count ?? 0,
+                    'total_expense_count' => $summary->total_expense_count ?? 0,
+                    'net_balance' => (float) ($totalIncome - $totalExpense),
+                ];
+            }),
         ]);
     }
 
@@ -114,10 +94,11 @@ class TransactionController extends Controller
 
             if (!$category) {
                 // Check limit for non-premium users before creating dynamic category
+                /** @var \App\Models\User $user */
                 $user = $request->user();
-                $customCategoryCount = Category::where('user_id', $user->id)->count();
+                $customCategoryCount = Category::where('user_id', $user?->id)->count();
 
-                if (!$user->is_premium && $customCategoryCount >= 3) {
+                if (!$user?->is_premium && $customCategoryCount >= 3) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'premium' => 'You have reached the limit of 3 custom categories. Upgrade to Professional to add unlimited categories.'
                     ]);
@@ -206,10 +187,11 @@ class TransactionController extends Controller
 
             if (!$category) {
                 // Check limit for non-premium users
+                /** @var \App\Models\User $user */
                 $user = $request->user();
-                $customCategoryCount = Category::where('user_id', $user->id)->count();
+                $customCategoryCount = Category::where('user_id', $user?->id)->count();
 
-                if (!$user->is_premium && $customCategoryCount >= 3) {
+                if (!$user?->is_premium && $customCategoryCount >= 3) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'premium' => 'You have reached the limit of 3 custom categories. Upgrade to Professional to add unlimited categories.'
                     ]);

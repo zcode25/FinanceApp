@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewOrderNotification;
 
 class SubscriptionTransaction extends Model
 {
@@ -87,5 +89,13 @@ class SubscriptionTransaction extends Model
         }
 
         $user->save();
+
+        // Notify Admin of new order
+        try {
+            $adminEmail = env('ADMIN_NOTIFICATION_EMAIL', config('mail.from.address'));
+            Mail::to($adminEmail)->send(new NewOrderNotification($this));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Admin Order Notification Error: ' . $e->getMessage());
+        }
     }
 }

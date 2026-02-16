@@ -9,25 +9,10 @@ class SubscriptionController extends Controller
 {
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
         $plans = \App\Models\Plan::all()->values();
 
-        // Determine current plan ID
-        // 1 = Starter (Free)
-        // Others = Professional, Master, Lifetime based on latest successful transaction
-        $currentPlanId = null;
-        if ($user) {
-            if (!$user->is_premium) {
-                $currentPlanId = 1;
-            } else {
-                $latestSuccess = $user->transactions()
-                    ->where('status', 'success')
-                    ->latest()
-                    ->first();
-
-                $currentPlanId = $latestSuccess ? (int) $latestSuccess->plan_id : 1;
-            }
-        }
+        $currentPlanId = $user ? $user->current_plan_id : 1;
 
         return Inertia::render('Subscription/Pricing', [
             'is_premium' => $user ? $user->is_premium : false,
@@ -44,7 +29,7 @@ class SubscriptionController extends Controller
 
     public function checkout(Request $request, $plan)
     {
-        $user = auth()->user();
+        $user = $request->user();
         $planModel = \App\Models\Plan::find($plan);
 
         if (!$planModel) {
@@ -54,19 +39,19 @@ class SubscriptionController extends Controller
         $allPlans = [
             1 => [
                 'period' => '/forever',
-                'description' => 'Basic tracking for personal use.',
+                'description' => __('starter_plan_desc'),
             ],
             2 => [
                 'period' => '/month',
-                'description' => 'Perfect for dedicated personal finance management.',
+                'description' => __('pro_plan_desc'),
             ],
             3 => [
                 'period' => '/year',
-                'description' => 'Our most popular plan for serious wealth builders.',
+                'description' => __('master_plan_desc'),
             ],
             4 => [
                 'period' => 'once',
-                'description' => 'Unlimited access forever. No more subscriptions.',
+                'description' => __('lifetime_plan_desc'),
             ]
         ];
 

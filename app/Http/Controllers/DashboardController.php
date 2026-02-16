@@ -14,11 +14,18 @@ class DashboardController extends Controller
     {
         $this->dashboardService = $dashboardService;
     }
-
     public function index(Request $request)
     {
+        $month = $request->query('month');
+        $basic = $this->dashboardService->getBasicData($month);
+        
         return Inertia::render('Dashboard', [
-            'data' => $this->dashboardService->getDashboardData($request->query('month'))
+            'summary' => $basic['summary'] ?? [],
+            'available_months' => $basic['available_months'] ?? [],
+            'subscription' => $basic['subscription'] ?? [],
+            'deferred_charts' => Inertia::defer(fn () => $this->dashboardService->getChartsData($month)),
+            'deferred_breakdown' => Inertia::defer(fn () => $this->dashboardService->getBreakdownData($month)),
+            'deferred_transactions' => Inertia::defer(fn () => $this->dashboardService->getRecentTransactions($month)),
         ]);
     }
 }

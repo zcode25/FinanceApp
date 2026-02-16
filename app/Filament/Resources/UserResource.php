@@ -38,9 +38,8 @@ class UserResource extends Resource
                                 Forms\Components\Placeholder::make('avatar_display')
                                     ->hiddenLabel()
                                     ->content(fn(User $record) => new \Illuminate\Support\HtmlString('
-                                        <div class="flex items-center justify-center">
-                                            <img src="' . ($record->avatar ? \Storage::url($record->avatar) : "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF") . '" 
-                                                 style="height: 80px; width: 80px;" 
+                                            <img src="' . ($record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? \Illuminate\Support\Facades\Storage::url($record->avatar) : \Illuminate\Support\Facades\Storage::url('avatars/' . $record->avatar))) : "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF") . '" 
+                                                 style="height: 80px; width:    
                                                  class="max-w-none object-cover object-center rounded-full ring-2 ring-white dark:ring-gray-900 shadow-sm">
                                         </div>
                                     ')),
@@ -94,6 +93,7 @@ class UserResource extends Resource
                                     ->circular()
                                     ->height(80)
                                     ->hiddenLabel()
+                                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar)) : null)
                                     ->defaultImageUrl(fn(User $record) => "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF"),
                                 TextEntry::make('name')
                                     ->weight('bold')
@@ -114,11 +114,11 @@ class UserResource extends Resource
                                     ->badge()
                                     ->state(function (User $record) {
                                         if (!$record->is_premium) {
-                                            return Plan::find(1)?->name ?? 'Starter';
+                                            return static::getPlanName(1);
                                         }
 
                                         return $record->latestTransaction?->plan?->name
-                                            ?? ($record->subscription_until === null ? (Plan::find(4)?->name ?? 'Lifetime') : 'Premium');
+                                            ?? ($record->subscription_until === null ? static::getPlanName(4) : 'Premium');
                                     })
                                     ->color(function (User $record) {
                                         if (!$record->is_premium)
@@ -126,7 +126,7 @@ class UserResource extends Resource
 
                                         $plan = $record->latestTransaction?->plan;
                                         if (!$plan && $record->subscription_until === null) {
-                                            $plan = Plan::find(4);
+                                            $plan = Plan::where('id', 4)->first();
                                         }
 
                                         return match ($plan?->duration_type) {
@@ -208,6 +208,7 @@ class UserResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('avatar')
                     ->circular()
+                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar)) : null)
                     ->defaultImageUrl(fn(User $record) => "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF"),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -222,11 +223,11 @@ class UserResource extends Resource
                     ->badge()
                     ->state(function (User $record) {
                         if (!$record->is_premium) {
-                            return Plan::find(1)?->name ?? 'Starter';
+                            return static::getPlanName(1);
                         }
 
                         return $record->latestTransaction?->plan?->name
-                            ?? ($record->subscription_until === null ? (Plan::find(4)?->name ?? 'Lifetime') : 'Premium');
+                            ?? ($record->subscription_until === null ? static::getPlanName(4) : 'Premium');
                     })
                     ->color(function (User $record) {
                         if (!$record->is_premium)
@@ -234,7 +235,7 @@ class UserResource extends Resource
 
                         $plan = $record->latestTransaction?->plan;
                         if (!$plan && $record->subscription_until === null) {
-                            $plan = Plan::find(4);
+                            $plan = Plan::where('id', 4)->first();
                         }
 
                         return match ($plan?->duration_type) {
@@ -293,7 +294,20 @@ class UserResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('is_admin', false);
+        return parent::getEloquentQuery()
+            ->with(['latestTransaction.plan'])
+            ->where('is_admin', false);
+    }
+
+    protected static ?array $cachedPlans = null;
+
+    protected static function getPlanName(int $id): string
+    {
+        if (static::$cachedPlans === null) {
+            static::$cachedPlans = Plan::all()->pluck('name', 'id')->toArray();
+        }
+
+        return static::$cachedPlans[$id] ?? ($id === 1 ? 'Starter' : ($id === 4 ? 'Lifetime' : 'Unknown'));
     }
 
     public static function getPages(): array

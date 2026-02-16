@@ -17,6 +17,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { route } from 'ziggy-js';
 import { usePage } from '@inertiajs/vue3';
+import { formatPrice } from '@/Utilities/plans';
+import '@/../css/landing.css';
 
 const page = usePage();
 const __ = (key, replacements = {}) => {
@@ -74,12 +76,7 @@ const grandTotal = computed(() => {
 });
 
 const formatCurrency = (value) => {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(value);
+    return formatPrice(value);
 };
 
 const applyPromo = () => {
@@ -301,6 +298,7 @@ const showSnapPopup = (token) => {
             
             <Link 
                 :href="route('dashboard')" 
+                prefetch
                 class="flex items-center gap-2 px-5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm rounded-xl transition-all active:scale-95 border border-slate-100 shadow-sm whitespace-nowrap"
             >
                 <ArrowLeft class="w-4 h-4" />

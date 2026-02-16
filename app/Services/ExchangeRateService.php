@@ -12,6 +12,8 @@ class ExchangeRateService
     private const CACHE_TTL = 86400; // 24 hours (was 3600 = 1 hour)
     private const BASE_CURRENCY = 'IDR';
 
+    private static array $runtimeCache = [];
+
     /**
      * Get current exchange rate from one currency to another
      * 
@@ -28,7 +30,12 @@ class ExchangeRateService
 
         $cacheKey = "exchange_rate_{$from}_{$to}";
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($from, $to) {
+        // Request-level memory cache to avoid multiple DB/Cache lookups in one request
+        if (isset(self::$runtimeCache[$cacheKey])) {
+            return self::$runtimeCache[$cacheKey];
+        }
+
+        return self::$runtimeCache[$cacheKey] = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($from, $to) {
             try {
                 $response = Http::timeout(5)->get(self::API_URL . $from);
 

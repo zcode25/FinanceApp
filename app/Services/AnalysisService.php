@@ -9,9 +9,18 @@ use Carbon\Carbon;
 
 class AnalysisService
 {
+    /**
+     * Cache for request-level memoization.
+     */
+    protected array $memo = [];
     public function getSpendingByCategory(Carbon $startDate, Carbon $endDate)
     {
-        return Transaction::where('user_id', auth()->id())
+        $key = 'spending_by_category_' . $startDate->toDateString() . '_' . $endDate->toDateString();
+        if (isset($this->memo[$key])) {
+            return $this->memo[$key];
+        }
+
+        return $this->memo[$key] = Transaction::where('user_id', auth()->id())
             ->where('is_active', true)
             ->where('type', 'expense')
             ->whereBetween('date', [$startDate, $endDate])
@@ -33,28 +42,32 @@ class AnalysisService
     public function getCashFlowTrend(Carbon $startDate, Carbon $endDate)
     {
         $daysInMonth = $startDate->daysInMonth;
+        $monthStr = $startDate->format('Y-m');
+
+        // 1. Fetch all aggregates in ONE query
+        $dailyData = Transaction::where('user_id', auth()->id())
+            ->where('is_active', true)
+            ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$monthStr])
+            ->select(
+                DB::raw("DAY(date) as day"),
+                DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
+                DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
+            )
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
+
         $labels = [];
         $incomeData = [];
         $expenseData = [];
 
+        // 2. Map and fill gaps
         for ($d = 1; $d <= $daysInMonth; $d++) {
-            $currentDate = $startDate->copy()->day($d);
-            $dayStr = $currentDate->format('d'); // '01', '02'
-            $dateFull = $currentDate->toDateString(); // '2026-02-01'
-
-            $labels[] = $dayStr;
-
-            $stats = Transaction::where('user_id', auth()->id())
-                ->where('is_active', true)
-                ->where('date', $dateFull)
-                ->select(
-                    DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
-                    DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
-                )
-                ->first();
-
-            $incomeData[] = (float) ($stats->income ?? 0);
-            $expenseData[] = (float) ($stats->expense ?? 0);
+            $labels[] = str_pad($d, 2, '0', STR_PAD_LEFT);
+            
+            $dayData = $dailyData->get($d);
+            $incomeData[] = (float) ($dayData->income ?? 0);
+            $expenseData[] = (float) ($dayData->expense ?? 0);
         }
 
         return [
@@ -66,7 +79,10 @@ class AnalysisService
 
     public function getWalletAllocation()
     {
-        // ... (Keep existing implementation)
+        if (isset($this->memo['wallet_allocation'])) {
+            return $this->memo['wallet_allocation'];
+        }
+
         $wallets = Wallet::where('user_id', auth()->id())->where('is_active', true)->get();
         $exchangeRateService = app(ExchangeRateService::class);
         $rate = $exchangeRateService->getCurrentRate('USD', 'IDR') ?? 16000;
@@ -84,28 +100,39 @@ class AnalysisService
             $allocation[$wallet->type] += $amount;
         }
 
-        return collect($allocation)->map(function ($total, $type) {
+        return $this->memo['wallet_allocation'] = collect($allocation)->map(function ($total, $type) {
             return ['type' => $type, 'total' => $total];
         })->values();
     }
 
     public function getSummary(Carbon $startDate, Carbon $endDate)
     {
-        $totals = Transaction::where('user_id', auth()->id())
+        $key = 'summary_' . $startDate->toDateString() . '_' . $endDate->toDateString();
+        if (isset($this->memo[$key])) {
+            return $this->memo[$key];
+        }
+
+        $summary = Transaction::where('user_id', auth()->id())
             ->where('is_active', true)
             ->whereBetween('date', [$startDate, $endDate])
-            ->select('type', DB::raw('SUM(amount_in_base_currency) as total'))
-            ->groupBy('type')
-            ->pluck('total', 'type');
+            ->select(
+                DB::raw('SUM(CASE WHEN type = "income" THEN amount_in_base_currency ELSE 0 END) as total_income'),
+                DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency ELSE 0 END) as total_expense'),
+                DB::raw('SUM(CASE WHEN type = "expense" AND DAYOFWEEK(date) IN (1, 7) THEN amount_in_base_currency ELSE 0 END) as weekend_expense'),
+                DB::raw('COUNT(CASE WHEN type = "expense" AND amount_in_base_currency < 50000 THEN 1 END) as small_transaction_count')
+            )
+            ->first();
 
-        $income = $totals->get('income', 0);
-        $expense = $totals->get('expense', 0);
+        $income = (float) ($summary->total_income ?? 0);
+        $expense = (float) ($summary->total_expense ?? 0);
 
-        return [
-            'total_income' => (float) $income,
-            'total_expense' => (float) $expense,
-            'net_savings' => (float) ($income - $expense),
-            'savings_rate' => $income > 0 ? round((($income - $expense) / $income) * 100, 1) : 0
+        return $this->memo[$key] = [
+            'total_income' => $income,
+            'total_expense' => $expense,
+            'net_savings' => $income - $expense,
+            'savings_rate' => $income > 0 ? round((($income - $expense) / $income) * 100, 1) : 0,
+            'weekend_expense' => (float) ($summary->weekend_expense ?? 0),
+            'small_transaction_count' => (int) ($summary->small_transaction_count ?? 0),
         ];
     }
 
@@ -180,14 +207,9 @@ class AnalysisService
         }
 
         // 3. Weekend Warrior
-        $weekendSpend = Transaction::where('user_id', auth()->id())
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startDate, $endDate])
-            ->whereRaw('DAYOFWEEK(date) IN (1, 7)') // 1=Sun, 7=Sat
-            ->sum('amount_in_base_currency');
-
-        $totalSpend = $this->getSummary($startDate, $endDate)['total_expense'];
+        $summary = $this->getSummary($startDate, $endDate);
+        $weekendSpend = $summary['weekend_expense'];
+        $totalSpend = $summary['total_expense'];
 
         if ($totalSpend > 0 && ($weekendSpend / $totalSpend) > 0.45) {
             $insights[] = [
@@ -199,12 +221,7 @@ class AnalysisService
         }
 
         // 4. The Latte Factor (Small frequent transactions)
-        $smallTxCount = Transaction::where('user_id', auth()->id())
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startDate, $endDate])
-            ->where('amount_in_base_currency', '<', 50000)
-            ->count();
+        $smallTxCount = $summary['small_transaction_count'];
 
         if ($smallTxCount > 10) {
             $insights[] = [
@@ -269,19 +286,12 @@ class AnalysisService
         }
 
         // 2. The "Category Squeeze"
-        $topCategory = Transaction::where('user_id', auth()->id())
-            ->where('is_active', true)
-            ->where('type', 'expense')
-            ->whereBetween('date', [$startDate, $endDate])
-            ->select('category_id', DB::raw('SUM(amount_in_base_currency) as total'))
-            ->groupBy('category_id')
-            ->with('category')
-            ->orderBy('total', 'desc')
-            ->first();
+        $spending = $this->getSpendingByCategory($startDate, $endDate);
+        $topCategory = $spending->first();
 
-        if ($topCategory && $topCategory->category) {
+        if ($topCategory) {
             $potentialSavings = $topCategory->total * 0.10; // 10% reduction
-            $catName = $topCategory->category->name;
+            $catName = $topCategory->category_name;
             $tips[] = [
                 'type' => 'info',
                 'title' => __('tip_squeeze_title', ['category' => $catName]),
