@@ -50,7 +50,7 @@ import Swal from 'sweetalert2';
     });
     
     const fileInput = ref(null);
-    const avatarPreview = ref(props.user.avatar ? `/storage/${props.user.avatar}` : null);
+    const avatarPreview = ref(props.user.avatar ? `/media/${props.user.avatar}` : null);
     
     const triggerFileInput = () => {
         fileInput.value.click();

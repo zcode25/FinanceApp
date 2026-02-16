@@ -82,8 +82,8 @@ const vClickOutside = {
 const getAvatarUrl = (avatar) => {
     if (!avatar) return null;
     if (avatar.startsWith('http')) return avatar;
-    if (avatar.startsWith('avatars/')) return `/storage/${avatar}`;
-    return `/storage/avatars/${avatar}`;
+    if (avatar.startsWith('avatars/')) return `/media/${avatar}`;
+    return `/media/avatars/${avatar}`;
 };
 </script>
 
