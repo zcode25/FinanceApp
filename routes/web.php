@@ -147,16 +147,20 @@ Route::middleware(['auth'])->group(function () {
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
 
-// Smart Storage Proxy - Only active in production (shared hosting)
-// In local development, use standard symlink (php artisan storage:link)
-if (app()->environment('production')) {
-    Route::get('storage/{path}', function ($path) {
+// Smart Storage Proxy - Fallback for missing symlink on shared hosting
+Route::get('storage/{path}', function ($path) {
+    try {
         $filePath = storage_path('app/public/' . $path);
         
+        // Final fallback diagnosis
         if (!file_exists($filePath)) {
+            \Illuminate\Support\Facades\Log::warning("Proxy 404: File not found at {$filePath}");
             abort(404);
         }
 
         return response()->file($filePath);
-    })->where('path', '.*');
-}
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error("Proxy 500: " . $e->getMessage());
+        abort(500);
+    }
+})->where('path', '.*');
