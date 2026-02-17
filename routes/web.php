@@ -147,21 +147,14 @@ Route::middleware(['auth'])->group(function () {
 // Midtrans Webhook
 Route::post('/midtrans/notification', [MidtransController::class, 'handleNotification'])->name('midtrans.notification');
 
-// Diagnostic route - Remove after fixing 403 issue
-Route::get('storage-test', function () {
-    return response()->json([
-        'message' => 'Laravel is receiving requests!',
-        'environment' => app()->environment(),
-        'storage_path' => storage_path('app/public'),
-        'sample_file_check' => file_exists(storage_path('app/public/avatars/cq4i0PqdWRjtDJvJz39DZ4dIt3ooHpTviaQ1X8Qx.jpg')) ? 'EXISTS' : 'NOT FOUND',
-        'public_path' => public_path('storage'),
-        'public_storage_exists' => file_exists(public_path('storage')) ? 'YES' : 'NO',
-    ]);
-});
-
 // Alternative Media Proxy - Bypasses potential Apache restrictions on "storage" keyword
 Route::get('media/{path}', function ($path) {
     try {
+        // Security: Prevent path traversal (e.g., trying to access ../../../.env)
+        if (str_contains($path, '..')) {
+            abort(403, 'Forbidden: Path traversal attempt detected.');
+        }
+
         $filePath = storage_path('app/public/' . $path);
         
         if (!file_exists($filePath)) {
@@ -172,24 +165,6 @@ Route::get('media/{path}', function ($path) {
         return response()->file($filePath);
     } catch (\Exception $e) {
         \Illuminate\Support\Facades\Log::error("Media Proxy 500: " . $e->getMessage());
-        abort(500);
-    }
-})->where('path', '.*');
-
-// Smart Storage Proxy - Fallback for missing symlink on shared hosting
-Route::get('storage/{path}', function ($path) {
-    try {
-        $filePath = storage_path('app/public/' . $path);
-        
-        // Final fallback diagnosis
-        if (!file_exists($filePath)) {
-            \Illuminate\Support\Facades\Log::warning("Proxy 404: File not found at {$filePath}");
-            abort(404);
-        }
-
-        return response()->file($filePath);
-    } catch (\Exception $e) {
-        \Illuminate\Support\Facades\Log::error("Proxy 500: " . $e->getMessage());
         abort(500);
     }
 })->where('path', '.*');
