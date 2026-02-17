@@ -59,6 +59,24 @@ import Swal from 'sweetalert2';
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
+            // Check file size (1MB = 1024 * 1024 bytes)
+            if (file.size > 1024 * 1024) {
+                profileForm.errors.avatar = __('avatar_max');
+                fileInput.value.value = ''; // Reset input
+                return;
+            }
+
+            // Check file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+            if (!allowedTypes.includes(file.type)) {
+                profileForm.errors.avatar = __('avatar_mimes');
+                fileInput.value.value = ''; // Reset input
+                return;
+            }
+
+            // Clear previous error if valid
+            profileForm.errors.avatar = null;
+            
             profileForm.avatar = file;
             const reader = new FileReader();
             reader.onload = (e) => {
