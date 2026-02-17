@@ -158,7 +158,7 @@ const submit = () => {
                             <span class="relative z-10 flex items-center gap-2">
                                 <span v-if="form.processing">{{ __('creating_account') }}</span>
                                 <template v-else>
-                                    {{ selectedPlan ? __('create_account_payment') : __('register_now') }} <ArrowRight class="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                    {{ (selectedPlan && selectedPlan.id !== 1) ? __('create_account_payment') : __('register_now') }} <ArrowRight class="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
                                 </template>
                             </span>
                         </button>

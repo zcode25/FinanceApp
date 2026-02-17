@@ -1,7 +1,10 @@
 <script setup>
-import { Head, useForm, Link } from '@inertiajs/vue3';
-import { Mail, ArrowRight, ArrowLeft, Send } from 'lucide-vue-next';
+import { Head, useForm, Link, usePage } from '@inertiajs/vue3';
+import { Mail, ArrowRight, ArrowLeft } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
+
+const page = usePage();
+const __ = (key) => page.props.translations?.[key] || key;
 
 defineProps({
     status: String,
@@ -17,22 +20,35 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Forgot Password" />
+    <Head :title="__('forgot_password_q')" />
 
-    <div class="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+    <div class="min-h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden font-sans">
         <!-- Background Artistic Elements -->
         <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
             <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-100/30 rounded-full blur-[160px]"></div>
             <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-100/20 rounded-full blur-[140px]"></div>
+            
+            <!-- Technical Grid Overlay -->
+            <div class="absolute inset-0 opacity-[0.05] pointer-events-none" 
+                 style="background-image: linear-gradient(#4f46e5 1px, transparent 1px), linear-gradient(90deg, #4f46e5 1px, transparent 1px); background-size: 40px 40px;">
+            </div>
         </div>
 
-        <div class="w-full max-w-md bg-white rounded-3xl p-6 md:p-10 relative z-10 border border-slate-100 shadow-sm">
+        <div class="w-full max-w-md bg-white rounded-[2.5rem] p-8 md:p-12 relative z-10 border border-slate-100 shadow-2xl shadow-slate-200/50">
             <div class="text-center mb-10">
-                <div class="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-100 transition-all duration-700 ease-out group">
-                    <span class="text-4xl font-bold text-white tracking-tighter group-hover:scale-110 transition-transform">F.</span>
-                </div>
-                <h1 class="text-2xl md:text-3xl font-bold text-slate-900 leading-tight mb-2">Forgot Password?</h1>
-                <p class="text-sm font-medium text-slate-500 max-w-[280px] mx-auto leading-relaxed">Enter your email and we'll send you a recovery link.</p>
+                <Link href="/" class="flex items-center justify-center gap-2 mb-8 group cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-300">
+                    <div class="flex items-center justify-center transition-all group-hover:scale-110 duration-300">
+                        <img src="/img/logo_vibefinance.png" class="h-6 md:h-7 w-auto object-contain" alt="VibeFinance Logo">
+                    </div>
+                    <div class="flex flex-col leading-tight">
+                        <span class="text-lg md:text-xl tracking-tight text-slate-900" style="font-family: Outfit, sans-serif;">
+                            <span class="font-semibold">Vibe</span><span class="font-light text-indigo-600">Finance</span>
+                        </span>
+                        <span class="text-[9px] font-medium text-slate-400">Powered by terasweb.id</span>
+                    </div>
+                </Link>
+                <h1 class="text-3xl font-bold text-slate-900 leading-tight mb-2">{{ __('forgot_password_title') }}</h1>
+                <p class="text-base font-medium text-slate-500">{{ __('forgot_password_subtitle') }}</p>
             </div>
 
             <div v-if="status" class="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-xs font-bold text-center">
@@ -41,7 +57,7 @@ const submit = () => {
 
             <form @submit.prevent="submit" class="space-y-6">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-2 ml-1">Email Address</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-2 ml-1">{{ __('email_address') }}</label>
                     <div class="relative group">
                         <Mail class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
                         <input 
@@ -62,12 +78,15 @@ const submit = () => {
                     <button 
                         type="submit" 
                         :disabled="form.processing"
-                        class="w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-50 group"
+                        class="w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-xl shadow-indigo-100 transition-all hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.95] disabled:opacity-50 group/btn overflow-hidden relative"
                     >
-                        <span v-if="form.processing">Sending link...</span>
-                        <template v-else>
-                            Send Recovery Link <ArrowRight class="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                        </template>
+                        <div class="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+                        <span class="relative z-10 flex items-center gap-2">
+                            <span v-if="form.processing">{{ __('sending_link') }}...</span>
+                            <template v-else>
+                                {{ __('send_recovery_link') }} <ArrowRight class="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                            </template>
+                        </span>
                     </button>
                 </div>
 
@@ -77,16 +96,10 @@ const submit = () => {
                         class="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors group"
                     >
                         <ArrowLeft class="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                        Back to Login
+                        {{ __('back_to_login') }}
                     </Link>
                 </div>
             </form>
-
-            <div class="mt-10 pt-8 border-t border-slate-50 text-center">
-                <p class="text-[10px] font-bold text-slate-400 tracking-tight">
-                    Finance Terminal &copy; 2026. Secure Access Protocol.
-                </p>
-            </div>
         </div>
     </div>
 </template>
