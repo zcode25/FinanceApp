@@ -61,21 +61,25 @@ import Swal from 'sweetalert2';
         if (file) {
             // Check file size (1MB = 1024 * 1024 bytes)
             if (file.size > 1024 * 1024) {
-                profileForm.errors.avatar = __('avatar_max');
+                profileForm.setError('avatar', __('avatar_max'));
+                profileForm.avatar = null;
                 fileInput.value.value = ''; // Reset input
+                avatarPreview.value = props.user.avatar ? `/media/${props.user.avatar}` : null;
                 return;
             }
 
             // Check file type
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
             if (!allowedTypes.includes(file.type)) {
-                profileForm.errors.avatar = __('avatar_mimes');
+                profileForm.setError('avatar', __('avatar_mimes'));
+                profileForm.avatar = null;
                 fileInput.value.value = ''; // Reset input
+                avatarPreview.value = props.user.avatar ? `/media/${props.user.avatar}` : null;
                 return;
             }
 
             // Clear previous error if valid
-            profileForm.errors.avatar = null;
+            profileForm.clearErrors('avatar');
             
             profileForm.avatar = file;
             const reader = new FileReader();
@@ -87,11 +91,22 @@ import Swal from 'sweetalert2';
     };
     
     const updateProfile = () => {
+        // Validation check for local errors
+        if (profileForm.errors.avatar) {
+            showToast(profileForm.errors.avatar, 'error');
+            return;
+        }
+
         profileForm.post('/settings/profile', {
             preserveScroll: true,
             onSuccess: () => {
                 showToast(__('profile_updated'));
             },
+            onError: (errors) => {
+                if (errors.avatar) {
+                    showToast(errors.avatar, 'error');
+                }
+            }
         });
     };
     
