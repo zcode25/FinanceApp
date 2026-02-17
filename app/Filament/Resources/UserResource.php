@@ -226,7 +226,8 @@ class UserResource extends Resource
                     ->label('Package')
                     ->badge()
                     ->state(function (User $record) {
-                        if (!$record->is_premium) {
+                        // If not premium OR expired, show Starter
+                        if (!$record->is_premium || ($record->subscription_until && $record->subscription_until->isPast())) {
                             return static::getPlanName(1);
                         }
 
@@ -237,8 +238,10 @@ class UserResource extends Resource
                         return $record->latestTransaction?->plan?->name ?? static::getPlanName(2); // Fallback to Professional
                     })
                     ->color(function (User $record) {
-                        if (!$record->is_premium)
+                        // If not premium OR expired, show gray (Starter)
+                        if (!$record->is_premium || ($record->subscription_until && $record->subscription_until->isPast())) {
                             return 'gray';
+                        }
 
                         $plan = $record->latestTransaction?->plan;
                         if (!$plan && $record->subscription_until === null) {

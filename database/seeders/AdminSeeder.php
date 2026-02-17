@@ -14,10 +14,10 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         // Check if admin already exists
-        if (!User::where('email', 'admin@vibefinance.id')->exists()) {
+        if (!User::where('email', 'admin@admin.id')->exists()) {
             User::create([
                 'name' => 'Super Admin',
-                'email' => 'admin@vibefinance.id',
+                'email' => 'admin@admin.id',
                 'password' => Hash::make('password'),
                 'is_admin' => true,
                 'email_verified_at' => now(),

@@ -13,7 +13,26 @@ class ListUsers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            // Manual user creation disabled
+            Actions\Action::make('sync_expired')
+                ->label('Sync Expired')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Sync Expired Subscriptions')
+                ->modalDescription('This will downgrade all premium users whose subscription period has ended.')
+                ->modalSubmitActionLabel('Sync Now')
+                ->action(function () {
+                    $count = \App\Models\User::where('is_premium', true)
+                        ->whereNotNull('subscription_until')
+                        ->where('subscription_until', '<', now())
+                        ->update(['is_premium' => false]);
+
+                    \Filament\Notifications\Notification::make()
+                        ->title('Sync Complete')
+                        ->body($count . ' user(s) have been downgraded to Starter.')
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 }
