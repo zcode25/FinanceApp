@@ -46,7 +46,11 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:1024', // 1MB Max, no GIFs
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg|max:1024',
+        ], [
+            'avatar.image' => __('avatar_image'),
+            'avatar.mimes' => __('avatar_mimes'),
+            'avatar.max' => __('avatar_max'),
         ]);
 
         $user->name = $validated['name'];

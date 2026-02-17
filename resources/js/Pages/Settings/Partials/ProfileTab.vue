@@ -127,6 +127,7 @@ import Swal from 'sweetalert2';
                                  <Upload class="w-4 h-4" /> <span>{{ __('change_avatar') }}</span>
                             </button>
                             <p class="text-[11px] text-slate-400 font-semibold mt-3 ml-1">{{ __('avatar_help') }}</p>
+                            <div v-if="profileForm.errors.avatar" class="text-rose-500 text-[11px] font-bold mt-2 ml-1">{{ profileForm.errors.avatar }}</div>
                         </div>
                     </div>
     
