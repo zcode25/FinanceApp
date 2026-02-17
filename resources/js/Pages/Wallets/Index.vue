@@ -804,7 +804,7 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                                 <button type="button" @click="showModal = false" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-4 rounded-xl font-bold text-sm transition-all">
                                     {{ __('cancel') }}
                                 </button>
-                                <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl transition-all">
+                                <button type="submit" :disabled="form.processing" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                     {{ isEditing ? __('save_changes') : __('initialize_wallet') }}
                                 </button>
                             </div>

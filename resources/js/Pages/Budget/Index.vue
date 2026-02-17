@@ -1188,7 +1188,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                                 <button 
                                     type="submit" 
                                     :disabled="form.processing"
-                                    class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-200 hover:shadow-xl text-sm disabled:opacity-50 disabled:shadow-none"
+                                    class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-200 hover:shadow-xl text-sm disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
                                 >
                                     {{ isEditing ? __('update_limit') : __('confirm_budget') }}
                                 </button>

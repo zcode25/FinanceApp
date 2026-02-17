@@ -826,7 +826,7 @@ watch(() => page.url, () => {
                                 <button 
                                     type="submit" 
                                     :disabled="form.processing"
-                                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl transition-all"
+                                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {{ isEditing ? __('update_goal') : __('create_goal_btn') }}
                                 </button>

@@ -171,7 +171,10 @@ import Swal from 'sweetalert2';
                             <h4 class="text-rose-900 font-bold text-lg leading-none mb-1.5">{{ __('reset_all_data') }}</h4>
                             <p class="text-xs font-bold text-rose-500">{{ __('reset_all_data_desc') }}</p>
                         </div>
-                        <button @click="confirmReset" class="w-full md:w-auto px-7 py-3.5 bg-white hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl font-bold transition-all border border-rose-100 active:scale-95 text-sm">
+                        <button 
+                            @click="confirmReset" 
+                            :disabled="resetForm.processing"
+                            class="w-full md:w-auto px-7 py-3.5 bg-white hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl font-bold transition-all border border-rose-100 active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                             {{ __('reset_data') }}
                         </button>
                     </div>
@@ -181,7 +184,10 @@ import Swal from 'sweetalert2';
                             <h4 class="font-bold text-lg leading-none mb-1.5">{{ __('delete_account') }}</h4>
                             <p class="text-xs font-bold text-rose-100">{{ __('delete_account_desc') }}</p>
                         </div>
-                        <button @click="confirmDeleteAccount" class="w-full md:w-auto px-7 py-3.5 bg-white text-rose-600 rounded-xl font-bold transition-all shadow-lg hover:bg-rose-50 active:scale-95 text-sm">
+                        <button 
+                            @click="confirmDeleteAccount" 
+                            :disabled="deleteForm.processing"
+                            class="w-full md:w-auto px-7 py-3.5 bg-white text-rose-600 rounded-xl font-bold transition-all shadow-lg hover:bg-rose-50 active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                             {{ __('delete_account') }}
                         </button>
                     </div>
