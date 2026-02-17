@@ -25,7 +25,10 @@ class ListUsers extends ListRecords
                     $count = \App\Models\User::where('is_premium', true)
                         ->whereNotNull('subscription_until')
                         ->where('subscription_until', '<', now())
-                        ->update(['is_premium' => false]);
+                        ->update([
+                            'is_premium' => false,
+                            'subscription_until' => null,
+                        ]);
 
                     \Filament\Notifications\Notification::make()
                         ->title('Sync Complete')

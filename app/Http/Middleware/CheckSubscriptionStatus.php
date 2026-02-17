@@ -35,6 +35,7 @@ class CheckSubscriptionStatus
                         // Automatically downgrade the user
                         $user->update([
                             'is_premium' => false,
+                            'subscription_until' => null,
                         ]);
 
                         // Optional: Add a flash message for the next request
