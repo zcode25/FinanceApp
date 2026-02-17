@@ -92,7 +92,7 @@ class AdminPanelProvider extends PanelProvider
                     </div>
                 </div>
             '))
-            ->favicon(asset('favicon.svg'))
+            ->favicon(asset('favicon.png'))
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
             ->colors([
