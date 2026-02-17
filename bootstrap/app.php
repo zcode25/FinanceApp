@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetLocale::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\UpdateUserActivity::class,
+            \App\Http\Middleware\CheckSubscriptionStatus::class,
         ]);
 
         $middleware->alias([
