@@ -38,8 +38,9 @@ class UserResource extends Resource
                                 Forms\Components\Placeholder::make('avatar_display')
                                     ->hiddenLabel()
                                     ->content(fn(User $record) => new \Illuminate\Support\HtmlString('
-                                            <img src="' . ($record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? \Illuminate\Support\Facades\Storage::url($record->avatar) : \Illuminate\Support\Facades\Storage::url('avatars/' . $record->avatar))) : "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF") . '" 
-                                                 style="height: 80px; width:    
+                                        <div class="flex items-center">
+                                            <img src="' . ($record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : url("media/" . (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : "avatars/" . $record->avatar))) : "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF") . '" 
+                                                 style="height: 80px; width: 80px;"
                                                  class="max-w-none object-cover object-center rounded-full ring-2 ring-white dark:ring-gray-900 shadow-sm">
                                         </div>
                                     ')),
@@ -93,7 +94,7 @@ class UserResource extends Resource
                                     ->circular()
                                     ->height(80)
                                     ->hiddenLabel()
-                                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar)) : null)
+                                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : url("media/" . (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar))) : null)
                                     ->defaultImageUrl(fn(User $record) => "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF"),
                                 TextEntry::make('name')
                                     ->weight('bold')
@@ -117,8 +118,11 @@ class UserResource extends Resource
                                             return static::getPlanName(1);
                                         }
 
-                                        return $record->latestTransaction?->plan?->name
-                                            ?? ($record->subscription_until === null ? static::getPlanName(4) : 'Premium');
+                                        if ($record->subscription_until === null) {
+                                            return static::getPlanName(4);
+                                        }
+
+                                        return $record->latestTransaction?->plan?->name ?? static::getPlanName(2); // Fallback to Professional
                                     })
                                     ->color(function (User $record) {
                                         if (!$record->is_premium)
@@ -208,7 +212,7 @@ class UserResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('avatar')
                     ->circular()
-                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar)) : null)
+                    ->state(fn (User $record) => $record->avatar ? (str_starts_with($record->avatar, 'http') ? $record->avatar : url("media/" . (str_starts_with($record->avatar, 'avatars/') ? $record->avatar : 'avatars/' . $record->avatar))) : null)
                     ->defaultImageUrl(fn(User $record) => "https://ui-avatars.com/api/?name=" . urlencode($record->name) . "&color=6366f1&background=EEF2FF"),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -226,8 +230,11 @@ class UserResource extends Resource
                             return static::getPlanName(1);
                         }
 
-                        return $record->latestTransaction?->plan?->name
-                            ?? ($record->subscription_until === null ? static::getPlanName(4) : 'Premium');
+                        if ($record->subscription_until === null) {
+                            return static::getPlanName(4);
+                        }
+
+                        return $record->latestTransaction?->plan?->name ?? static::getPlanName(2); // Fallback to Professional
                     })
                     ->color(function (User $record) {
                         if (!$record->is_premium)

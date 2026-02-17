@@ -7,16 +7,36 @@ use App\Models\Wallet;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\ExchangeRateService;
+use Illuminate\Support\Facades\Auth;
+
 class ReportService
 {
+    protected $exchangeRateService;
+
+    public function __construct(ExchangeRateService $exchangeRateService)
+    {
+        $this->exchangeRateService = $exchangeRateService;
+    }
+
     /**
      * Generate detailed report grouped by wallet with running balances.
      */
     public function getDetailedWalletReports(Carbon $startDate, Carbon $endDate)
     {
-        $wallets = Wallet::where('user_id', auth()->id())->where('is_active', true)->get();
+        $wallets = Wallet::where('user_id', Auth::id())->where('is_active', true)->get();
         $reports = [];
         $walletIds = $wallets->pluck('id');
+
+        // Check for non-IDR wallets to decide if we need the exchange rate
+        $hasNonIdr = $wallets->contains(fn($w) => $w->currency !== 'IDR');
+        $rate = 1.0;
+        if ($hasNonIdr) {
+            $rate = $this->exchangeRateService->getCurrentRate('USD', 'IDR') ?? 16000;
+        }
+
+        // 1. Batch Fetch Opening Balance Adjustments (Queries AFTER start date)
+// ... (rest of logic remains same, just using $rate in the return)
 
         // 1. Batch Fetch Opening Balance Adjustments (Queries AFTER start date)
         $adjustments = Transaction::whereIn('wallet_id', $walletIds)
@@ -82,7 +102,11 @@ class ReportService
                     'income' => $totalIncome,
                     'expense' => $totalExpense,
                     'closing_balance' => $closingBalance,
-                    'net_flow' => $totalIncome - $totalExpense
+                    'net_flow' => $totalIncome - $totalExpense,
+                    // Converted values for global totals
+                    'base_income' => $wallet->currency === 'IDR' ? $totalIncome : $totalIncome * $rate,
+                    'base_expense' => $wallet->currency === 'IDR' ? $totalExpense : $totalExpense * $rate,
+                    'base_net_flow' => $wallet->currency === 'IDR' ? ($totalIncome - $totalExpense) : ($totalIncome - $totalExpense) * $rate,
                 ],
                 'transactions' => $processedTransactions->values()
             ];

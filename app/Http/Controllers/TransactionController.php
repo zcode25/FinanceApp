@@ -22,7 +22,17 @@ class TransactionController extends Controller
             ->orderBy('created_at', 'desc');
 
         $exchangeRateService = app(ExchangeRateService::class);
-        $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
+        $currentRate = null;
+
+        // Fetch rate only if user has USD wallets or if explicitly needed by frontend
+        $hasUsdWallet = Wallet::where('user_id', $request->user()->id)
+            ->where('currency', 'USD')
+            ->where('is_active', true)
+            ->exists();
+
+        if ($hasUsdWallet) {
+            $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
+        }
 
         $perPage = $request->input('per_page', 10);
 

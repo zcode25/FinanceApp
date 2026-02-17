@@ -40,8 +40,7 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
-    deferred_totals: Object,
-    deferred_matrix: Array,
+    deferred_data: Object,
     filters: Object,
     is_premium: Boolean
 });
@@ -49,8 +48,8 @@ const props = defineProps({
 // Centralized data access with robust defaults for deferred props
 const data = computed(() => {
     return {
-        matrix: props.deferred_matrix || [],
-        totals: props.deferred_totals || {}
+        matrix: props.deferred_data?.matrix || [],
+        totals: props.deferred_data?.totals || {}
     };
 });
 
@@ -70,7 +69,7 @@ watch(range, (value) => {
     router.get(route('tracker'), { range: value }, {
         preserveState: true,
         preserveScroll: true,
-        only: ['periods', 'matrix', 'totals', 'filters'],
+        only: ['periods', 'deferred_data', 'filters'],
     });
 });
 
@@ -302,7 +301,7 @@ watch(() => page.url, () => {
 
         <div class="max-w-[1600px] space-y-8">
             <!-- 1. Deferred Summary Grid -->
-            <Deferred data="deferred_totals">
+            <Deferred data="deferred_data">
                 <template #fallback>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
                         <div v-for="i in 3" :key="i" class="h-40 bg-slate-50 rounded-[2rem] animate-pulse border border-slate-100 flex flex-col justify-between p-8">
@@ -383,7 +382,7 @@ watch(() => page.url, () => {
             </Deferred>
 
             <!-- 2. Deferred Matrix Table -->
-            <Deferred data="deferred_matrix">
+            <Deferred data="deferred_data">
                 <template #fallback>
                      <div class="bg-white rounded-2xl border border-slate-100 p-8 space-y-6">
                         <div class="flex items-center justify-between">

@@ -50,8 +50,8 @@ class HandleInertiaRequests extends Middleware
                 ...(new \Tighten\Ziggy\Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
-            'midtrans_client_key' => config('services.midtrans.client_key') ?? env('MIDTRANS_CLIENT_KEY'),
-            'midtrans_is_production' => env('MIDTRANS_IS_PRODUCTION', false),
+            'midtrans_client_key' => config('services.midtrans.client_key'),
+            'midtrans_is_production' => (bool) config('services.midtrans.is_production'),
         ];
     }
 }

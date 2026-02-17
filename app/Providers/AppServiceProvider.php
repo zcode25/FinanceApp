@@ -28,5 +28,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewPulse', function (User $user) {
             return app()->environment('local') || $user->is_admin;
         });
+
+        \Laravel\Pulse\Facades\Pulse::user(fn(User $user) => [
+            'name' => $user->name,
+            'extra' => $user->email,
+            'avatar' => $user->avatar ? url('media/' . $user->avatar) : null,
+        ]);
     }
 }

@@ -14,6 +14,7 @@ class DashboardService
 {
     protected $exchangeRateService;
     protected $walletsCache = null;
+    protected $categoriesCache = null;
 
     public function __construct(ExchangeRateService $exchangeRateService)
     {
@@ -106,7 +107,7 @@ class DashboardService
             ->get();
 
         $categoryIds = $categoryBreakdownRaw->pluck('category_id')->filter()->unique();
-        $categoriesById = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+        $categoriesById = $this->getCachedCategories($categoryIds);
 
         $categories = $categoryBreakdownRaw->map(function ($item) use ($categoriesById) {
             $cat = $categoriesById->get($item->category_id);
@@ -144,7 +145,7 @@ class DashboardService
         $walletsById = $this->getCachedWallets($userId)->keyBy('id');
         
         $categoryIds = $recentTransactions->pluck('category_id')->filter()->unique();
-        $categoriesById = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+        $categoriesById = $this->getCachedCategories($categoryIds);
 
         $recentTransactions->each(function ($tx) use ($walletsById, $categoriesById) {
             $tx->setRelation('wallet', $walletsById->get($tx->wallet_id));
@@ -160,6 +161,27 @@ class DashboardService
             $this->walletsCache = Wallet::where('user_id', $userId)->where('is_active', true)->get();
         }
         return $this->walletsCache;
+    }
+
+    protected function getCachedCategories($ids)
+    {
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        if ($this->categoriesCache === null) {
+            $this->categoriesCache = collect();
+        }
+
+        // Find IDs not in cache
+        $missingIds = $ids->reject(fn($id) => $this->categoriesCache->has($id));
+
+        if ($missingIds->isNotEmpty()) {
+            $newCategories = Category::whereIn('id', $missingIds)->get()->keyBy('id');
+            $this->categoriesCache = $this->categoriesCache->merge($newCategories);
+        }
+
+        return $this->categoriesCache->only($ids);
     }
 
 
@@ -227,9 +249,12 @@ class DashboardService
     private function getWalletDistribution($wallets)
     {
         return $wallets->map(function ($w) {
-            $balanceInIdr = $w->currency === 'IDR'
-                ? $w->balance
-                : $w->balance * $this->exchangeRateService->getCurrentRate($w->currency, 'IDR');
+            $balanceInIdr = $w->balance;
+            
+            if ($w->currency !== 'IDR') {
+                $rate = $this->exchangeRateService->getCurrentRate($w->currency, 'IDR') ?? 1.0;
+                $balanceInIdr = $w->balance * $rate;
+            }
 
             return [
                 'name' => $w->name,

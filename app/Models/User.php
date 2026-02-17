@@ -149,7 +149,7 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
     /**
      * Cache for the latest subscription transaction to avoid duplicate queries.
      */
-    protected ?SubscriptionTransaction $latestTransactionCache = null;
+    protected $latestTransactionCache = null;
 
     protected function getLatestSubscriptionTransaction(): ?SubscriptionTransaction
     {
@@ -172,9 +172,13 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
         if (!$this->is_premium)
             return 'Starter';
 
+        if ($this->subscription_until === null) {
+            return 'Lifetime';
+        }
+
         $latest = $this->getLatestSubscriptionTransaction();
 
-        return $latest?->plan?->name ?? 'Premium';
+        return $latest?->plan?->name ?? 'Professional';
     }
 
     /**
@@ -187,7 +191,12 @@ class User extends Authenticatable implements MustVerifyEmail, FilamentUser
 
         $latest = $this->getLatestSubscriptionTransaction();
 
-        return $latest ? (int) $latest->plan_id : 1;
+        if ($latest) {
+            return (int) $latest->plan_id;
+        }
+
+        // Fallback for manual edits: NULL expiry = Lifetime (4), Has expiry = Professional (2)
+        return $this->subscription_until === null ? 4 : 2;
     }
 
     /**

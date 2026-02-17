@@ -37,6 +37,7 @@ class ExchangeRateService
 
         return self::$runtimeCache[$cacheKey] = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($from, $to) {
             try {
+                /** @var \Illuminate\Http\Client\Response $response */
                 $response = Http::timeout(5)->get(self::API_URL . $from);
 
                 if ($response->successful()) {

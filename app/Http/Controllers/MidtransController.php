@@ -40,6 +40,7 @@ class MidtransController extends Controller
         $discountAmount = 0;
         $promoId = null;
 
+        // Apply Promo Code
         if ($request->promo_code) {
             $promo = Promo::where('code', $request->promo_code)
                 ->where('is_active', true)
@@ -71,13 +72,16 @@ class MidtransController extends Controller
             }
         }
 
+        // Midtrans amounts MUST be integers
+        $finalGrossAmount = (int) $amount;
+
         // Generate Unique Order ID (VIBE- prefix to avoid collision with other apps)
         $orderId = 'VIBE-SUB-' . time() . '-' . $user->id;
 
         $params = [
             'transaction_details' => [
                 'order_id' => $orderId,
-                'gross_amount' => $amount,
+                'gross_amount' => $finalGrossAmount,
             ],
             // Override Notification URL (Critical for Multi-App support)
             // This ensures Midtrans calls THIS app's callback for THIS transaction
@@ -88,25 +92,16 @@ class MidtransController extends Controller
             ],
             'item_details' => [
                 [
-                    'id' => $plan,
-                    'price' => $originalAmount,
+                    'id' => (string) $planModel->id,
+                    'price' => $finalGrossAmount, // Apply discount directly to item price
                     'quantity' => 1,
-                    'name' => 'VibeFinance Premium - ' . ucfirst($plan)
+                    'name' => 'VibeFinance - ' . $planModel->name . ($promoId ? ' (Promo Applied)' : '')
                 ]
             ],
             'callbacks' => [
                 'finish' => route('dashboard', ['upgrade_success' => 1])
             ]
         ];
-
-        if ($discountAmount > 0) {
-            $params['item_details'][] = [
-                'id' => 'DISCOUNT',
-                'price' => -$discountAmount,
-                'quantity' => 1,
-                'name' => 'Discount applied'
-            ];
-        }
 
         // Handle specific payment method selection
         if ($request->payment_method) {
@@ -123,6 +118,8 @@ class MidtransController extends Controller
                 $params['enabled_payments'] = $methodMap[$request->payment_method];
             }
         }
+
+        \Illuminate\Support\Facades\Log::info("Midtrans Snap Attempt for Order: {$orderId}", ['params' => $params]);
 
         try {
             // Handle FREE transaction (Amount 0)

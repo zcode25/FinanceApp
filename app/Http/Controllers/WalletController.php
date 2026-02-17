@@ -15,7 +15,16 @@ class WalletController extends Controller
     {
         $user = $request->user();
         $exchangeRateService = app(ExchangeRateService::class);
-        $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
+        $currentRate = null;
+
+        $hasUsdWallet = Wallet::where('user_id', $user?->id)
+            ->where('currency', 'USD')
+            ->where('is_active', true)
+            ->exists();
+
+        if ($hasUsdWallet) {
+            $currentRate = $exchangeRateService->getCurrentRate('USD', 'IDR');
+        }
 
         return Inertia::render('Wallets/Index', [
             'wallets' => Wallet::where('user_id', $user?->id)

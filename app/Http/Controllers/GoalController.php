@@ -47,7 +47,13 @@ class GoalController extends Controller
         return Inertia::render('goals/index', [
             'goals' => $goals,
             'wallets' => $wallets,
-            'currentExchangeRate' => app(\App\Services\ExchangeRateService::class)->getCurrentRate('USD', 'IDR'),
+            'currentExchangeRate' => Inertia::defer(function () use ($user) {
+                // Return rate ONLY if user has a USD goal or USD wallet
+                $hasUsd = \App\Models\Goal::where('user_id', $user?->id)->where('currency', 'USD')->exists() ||
+                         \App\Models\Wallet::where('user_id', $user?->id)->where('currency', 'USD')->exists();
+                
+                return $hasUsd ? app(\App\Services\ExchangeRateService::class)->getCurrentRate('USD', 'IDR') : null;
+            }),
         ]);
     }
 

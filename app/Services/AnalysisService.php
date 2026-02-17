@@ -7,6 +7,8 @@ use App\Models\Wallet;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+use Illuminate\Support\Facades\Auth;
+
 class AnalysisService
 {
     /**
@@ -20,7 +22,7 @@ class AnalysisService
             return $this->memo[$key];
         }
 
-        return $this->memo[$key] = Transaction::where('user_id', auth()->id())
+        return $this->memo[$key] = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->where('type', 'expense')
             ->whereBetween('date', [$startDate, $endDate])
@@ -45,7 +47,7 @@ class AnalysisService
         $monthStr = $startDate->format('Y-m');
 
         // 1. Fetch all aggregates in ONE query
-        $dailyData = Transaction::where('user_id', auth()->id())
+        $dailyData = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$monthStr])
             ->select(
@@ -83,9 +85,14 @@ class AnalysisService
             return $this->memo['wallet_allocation'];
         }
 
-        $wallets = Wallet::where('user_id', auth()->id())->where('is_active', true)->get();
+        $wallets = Wallet::where('user_id', Auth::id())->where('is_active', true)->get();
         $exchangeRateService = app(ExchangeRateService::class);
-        $rate = $exchangeRateService->getCurrentRate('USD', 'IDR') ?? 16000;
+        $rate = 1.0;
+
+        $hasUsd = $wallets->contains('currency', 'USD');
+        if ($hasUsd) {
+            $rate = $exchangeRateService->getCurrentRate('USD', 'IDR') ?? 16000;
+        }
 
         $allocation = [];
         foreach ($wallets as $wallet) {
@@ -112,7 +119,7 @@ class AnalysisService
             return $this->memo[$key];
         }
 
-        $summary = Transaction::where('user_id', auth()->id())
+        $summary = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->whereBetween('date', [$startDate, $endDate])
             ->select(
@@ -147,7 +154,7 @@ class AnalysisService
         $prevStart = $startDate->copy()->subMonths(3);
         $prevEnd = $startDate->copy()->subDay();
 
-        $historicalData = Transaction::where('user_id', auth()->id())
+        $historicalData = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->where('type', 'expense')
             ->whereBetween('date', [$prevStart, $prevEnd])

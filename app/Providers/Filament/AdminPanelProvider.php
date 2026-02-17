@@ -45,8 +45,12 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 'panels::head.end',
-                fn(): string => '<style>
-                    /* Sidebar: White & Clean */
+                fn(): string => '
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        /* Sidebar: White & Clean */
                     .fi-sidebar {
                         background-color: white !important;
                         border-right: 1px solid rgb(243 244 246); /* gray-100 */
@@ -75,6 +79,19 @@ class AdminPanelProvider extends PanelProvider
                 </style>',
             )
             ->brandName('VibeFinance Admin')
+            ->brandLogo(new \Illuminate\Support\HtmlString('
+                <div class="flex items-center gap-2 pointer-events-none select-none">
+                    <div class="flex items-center justify-center">
+                        <img src="/img/logo_vibefinance.png" class="h-7 w-auto object-contain" alt="VibeFinance Logo">
+                    </div>
+                    <div class="flex flex-col leading-tight">
+                        <span class="text-lg tracking-tight text-slate-900" style="font-family: Outfit, sans-serif;">
+                            <span class="font-semibold">Vibe</span><span class="font-light text-indigo-600">Finance</span>
+                        </span>
+                        <span class="text-xs  text-slate-400">Powered by terasweb.id</span>
+                    </div>
+                </div>
+            '))
             ->favicon(asset('favicon.svg'))
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
