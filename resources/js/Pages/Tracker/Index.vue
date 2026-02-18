@@ -300,15 +300,45 @@ watch(() => page.url, () => {
         </header>
 
         <div class="max-w-[1600px] space-y-8">
-            <!-- 1. Deferred Summary Grid -->
+            <!-- Consolidated Deferred Data -->
             <Deferred data="deferred_data">
                 <template #fallback>
+                    <!-- Totals Skeleton -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12">
                         <div v-for="i in 3" :key="i" class="h-40 bg-slate-50 rounded-[2rem] animate-pulse border border-slate-100 flex flex-col justify-between p-8">
                             <div class="w-12 h-12 bg-slate-100 rounded-2xl"></div>
                             <div class="space-y-3">
                                 <div class="w-24 h-4 bg-slate-100 rounded-lg"></div>
                                 <div class="w-40 h-8 bg-slate-200 rounded-lg"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Matrix Skeleton -->
+                     <div class="bg-white rounded-2xl border border-slate-100 p-8 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <div class="h-8 w-48 bg-slate-50 rounded-lg animate-pulse"></div>
+                            <div class="h-8 w-8 bg-slate-50 rounded-lg animate-pulse"></div>
+                        </div>
+                        
+                        <!-- Table Skeleton -->
+                        <div class="space-y-4">
+                            <!-- Header -->
+                            <div class="flex gap-4 pb-4 border-b border-slate-50">
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                            </div>
+                            <!-- Rows -->
+                            <div v-for="i in 5" :key="i" class="flex gap-4 py-2">
+                                <div class="w-1/4 flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-slate-50 animate-pulse"></div>
+                                    <div class="w-24 h-4 bg-slate-50 rounded animate-pulse"></div>
+                                </div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
+                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
                             </div>
                         </div>
                     </div>
@@ -379,39 +409,6 @@ watch(() => page.url, () => {
                         </div>
                     </div>
                 </div>
-            </Deferred>
-
-            <!-- 2. Deferred Matrix Table -->
-            <Deferred data="deferred_data">
-                <template #fallback>
-                     <div class="bg-white rounded-2xl border border-slate-100 p-8 space-y-6">
-                        <div class="flex items-center justify-between">
-                            <div class="h-8 w-48 bg-slate-50 rounded-lg animate-pulse"></div>
-                            <div class="h-8 w-8 bg-slate-50 rounded-lg animate-pulse"></div>
-                        </div>
-                        
-                        <!-- Table Skeleton -->
-                        <div class="space-y-4">
-                            <!-- Header -->
-                            <div class="flex gap-4 pb-4 border-b border-slate-50">
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                            </div>
-                            <!-- Rows -->
-                            <div v-for="i in 5" :key="i" class="flex gap-4 py-2">
-                                <div class="w-1/4 flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-full bg-slate-50 animate-pulse"></div>
-                                    <div class="w-24 h-4 bg-slate-50 rounded animate-pulse"></div>
-                                </div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                                <div class="w-1/4 h-6 bg-slate-50 rounded animate-pulse"></div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
 
                 <div v-if="data.matrix.length > 0">
                 <!-- Matrix Table (Desktop) -->
@@ -592,8 +589,8 @@ watch(() => page.url, () => {
                                 </span>
                             </div>
                         </div>
-                        </div>
                     </div>
+                </div>
                 </div>
                 </div>
                 <!-- Empty State -->
