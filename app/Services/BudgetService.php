@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Budget;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class BudgetService
@@ -25,9 +26,9 @@ class BudgetService
         $startDate = Carbon::parse($month)->startOfMonth();
         $endDate = Carbon::parse($month)->endOfMonth();
 
-        $budgets = Budget::with('category')->where('user_id', auth()->id())->where('month', $month)->get();
+        $budgets = Budget::with('category')->where('user_id', Auth::id())->where('month', $month)->get();
 
-        $spentByCategory = Transaction::where('user_id', auth()->id())
+        $spentByCategory = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->where('type', 'expense')
             ->whereBetween('date', [$startDate, $endDate])
@@ -106,7 +107,7 @@ class BudgetService
         $targetMonth = $targetMonth ?? Carbon::now()->format('Y-m');
 
         // Get average spending per category in the last 3 months
-        $avgSpending = Transaction::where('user_id', auth()->id())
+        $avgSpending = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)
             ->where('type', 'expense')
             ->where('date', '>=', $threeMonthsAgo)
@@ -149,7 +150,7 @@ class BudgetService
         $allocations = $this->calculateAllocations($goal, $lifestyle);
 
         // 2. Fetch User Categories (Active & Expense Only)
-        $userCategories = \App\Models\Category::forUser(auth()->id())
+        $userCategories = \App\Models\Category::forUser(Auth::id())
             ->where('type', 'expense')
             ->get();
 
@@ -182,7 +183,7 @@ class BudgetService
             // If mapping is missing, create the category
             if (!isset($mapping[$type])) {
                 $newCat = \App\Models\Category::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'name' => $type,
                     'type' => 'expense',
                     'color' => $colors[$type] ?? 'bg-gray-500',
@@ -338,7 +339,7 @@ class BudgetService
 
         foreach ($allocations as $categoryName => $perc) {
             // Check if category exists
-            $category = \App\Models\Category::where('user_id', auth()->id())
+            $category = \App\Models\Category::where('user_id', Auth::id())
                 ->where('name', $categoryName)
                 ->first();
 
@@ -350,7 +351,7 @@ class BudgetService
             // If doesn't exist, create it
             if (!$category) {
                 $category = \App\Models\Category::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                     'name' => $categoryName,
                     'type' => 'expense',
                     'color' => $colors[$categoryName] ?? 'bg-gray-500',

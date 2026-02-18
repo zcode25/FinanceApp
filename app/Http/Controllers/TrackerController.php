@@ -36,34 +36,8 @@ class TrackerController extends Controller
         return Inertia::render('Tracker/Index', [
             'periods' => $dates,
             'periods' => $dates,
-            'deferred_totals' => Inertia::defer(function () use ($dates, $wallets) {
-                 $walletIds = $wallets->pluck('id');
-                 
-                 // Light query for totals only (if possible, but here we reuse the main query logic for consistency)
-                 // To truly optimize, one might separate the queries, but for now we'll stick to the existing logic 
-                 // and just return the totals part, allowing it to be loaded independently if we wanted to (though they share logic).
-                 // ACTUALLY, to make them truly independent, we should probably duplicate the logic or extract it to a service 
-                 // that guarantees memorization.
-                 // Given the complexity of `generateDatePoints` and the aggregation, let's defer them separately.
-                 // Re-calculating might be expensive if not cached. 
-                 // Let's implement a shared calculation strategy or just duplicate the closure for now 
-                 // as they are inextricably linked in the current implementation.
-                 
-                 // Optimization: The heavy part is the matrix. Totals are derived from it.
-                 // If we want totals FAST, we need a lighter query. 
-                 // For now, let's keep the logic but split the return to allow the frontend to render the "Totals" 
-                 // section as soon as it's ready (conceptually), but since they run the same logic, 
-                 // we rely on Inertia handling parallel requests or just logically separating them for the frontend.
-                 
-                 // WAIT. If I split them into two Inertia::defer calls, they will be two separate network requests.
-                 // If they verify the same logic, that's double the DB work. 
-                 // Ideally, we should fetch "Totals" via a lighter query.
-                 
-                 // Let's refactor slightly to be safer/cleaner.
-                 return $this->getTrackerData($dates, $wallets)['totals'];
-            }),
-            'deferred_matrix' => Inertia::defer(function () use ($dates, $wallets) {
-                 return $this->getTrackerData($dates, $wallets)['matrix'];
+            'deferred_data' => Inertia::defer(function () use ($dates, $wallets) {
+                 return $this->getTrackerData($dates, $wallets);
             }),
             'filters' => [
                 'range' => $requestedRange
