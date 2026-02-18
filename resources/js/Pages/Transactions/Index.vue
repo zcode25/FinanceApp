@@ -203,11 +203,15 @@ const loadMore = async () => {
         };
     };
     
+    const getJakartaDate = () => new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+
     const form = useForm({
         amount: '',
         category: '',
         type: 'expense',
-        date: new Date().toISOString().substr(0, 10),
+        date: getJakartaDate(),
         description: '',
         wallet_id: '',
         exchange_rate: ''
@@ -218,7 +222,7 @@ const loadMore = async () => {
         selectedTransactionId.value = null;
         form.reset();
         form.clearErrors();
-        form.date = new Date().toISOString().substr(0, 10);
+        form.date = getJakartaDate();
         form.type = 'expense';
         showModal.value = true;
     };
@@ -288,10 +292,15 @@ const loadMore = async () => {
         }
     };
 
-    // Card Metrics Computations
-    const currentDate = new Date();
-    const currentMonthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-    const daysPassed = currentDate.getDate();
+    // Card Metrics Computations — use Jakarta timezone for accurate WIB date
+    const jakartaNow = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+    const [, jakartaMonth, jakartaDay] = jakartaNow.split('-');
+    const currentMonthName = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta', month: 'long', year: 'numeric'
+    }).format(new Date());
+    const daysPassed = parseInt(jakartaDay, 10);
 
     const avgIncome = computed(() => summaryData.value.total_income > 0 ? summaryData.value.total_income / daysPassed : 0);
     const avgExpense = computed(() => summaryData.value.total_expense > 0 ? summaryData.value.total_expense / daysPassed : 0);

@@ -93,7 +93,12 @@ const skipHTML = `<div class="mt-4 flex justify-start">
 
 // Dynamic greeting based on time
 const greeting = computed(() => {
-    const hour = new Date().getHours();
+    // Use Jakarta timezone explicitly to get correct WIB hour
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Jakarta',
+        hour: 'numeric',
+        hour12: false
+    }).format(new Date()), 10);
     if (hour >= 5 && hour < 12) return __('good_morning');
     if (hour >= 12 && hour < 18) return __('good_afternoon');
     return __('good_evening');

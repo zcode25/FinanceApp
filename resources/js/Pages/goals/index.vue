@@ -57,12 +57,16 @@ const isEditing = ref(false);
 const editingGoal = ref(null);
 const selectedGoalForDetails = ref(null);
 
+const getJakartaDate = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+}).format(new Date());
+
 const form = useForm({
     name: '',
     target_amount: '',
     type: 'saving',
     target_date: '',
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: getJakartaDate(),
     notes: '',
     currency: 'IDR',
     wallet_ids: [],
@@ -94,7 +98,7 @@ const openAddModal = () => {
     form.target_amount = '';
     form.type = 'saving';
     form.target_date = '';
-    form.start_date = new Date().toISOString().split('T')[0];
+    form.start_date = getJakartaDate();
     form.notes = '';
     form.currency = 'IDR';
     form.wallet_ids = [];
@@ -107,8 +111,8 @@ const openEditModal = (goal) => {
     form.name = goal.name;
     form.target_amount = goal.target_amount;
     form.type = goal.type;
-    form.target_date = goal.target_date ? new Date(goal.target_date).toISOString().split('T')[0] : '';
-    form.start_date = goal.start_date ? new Date(goal.start_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    form.target_date = goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString('en-CA') : '';
+    form.start_date = goal.start_date ? new Date(goal.start_date + 'T00:00:00').toLocaleDateString('en-CA') : getJakartaDate();
     form.notes = goal.notes;
     form.currency = goal.currency;
     form.wallet_ids = goal.wallets.map(w => w.id);
@@ -125,7 +129,7 @@ const closeModal = () => {
     form.target_amount = '';
     form.type = 'saving';
     form.target_date = '';
-    form.start_date = new Date().toISOString().split('T')[0];
+    form.start_date = getJakartaDate();
     form.notes = '';
     form.currency = 'IDR';
     form.wallet_ids = [];
@@ -756,7 +760,7 @@ watch(() => page.url, () => {
                                         v-model="form.target_date"
                                         type="date"
                                         class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-semibold text-sm"
-                                        :min="new Date().toISOString().split('T')[0]"
+                                        :min="getJakartaDate()"
                                     />
                                     <p v-if="form.errors.target_date" class="mt-2 text-xs font-bold text-rose-600 flex items-center gap-1.5">
                                         <AlertCircle class="w-3.5 h-3.5" />

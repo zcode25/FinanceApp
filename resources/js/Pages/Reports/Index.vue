@@ -71,18 +71,21 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
     // availableMonths passed as prop
     
     const localizedAvailableMonths = computed(() => {
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        threeMonthsAgo.setDate(1);
+        // Calculate "3 months ago" using Jakarta timezone to avoid UTC boundary issues
+        const jakartaToday = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date());
+        const [year, month] = jakartaToday.split('-').map(Number);
+        const threeMonthsAgo = new Date(year, month - 1 - 3, 1); // first day, 3 months back
 
         return (props.availableMonths || []).map(monthStr => {
-            const [year, month] = monthStr.split('-');
-            const date = new Date(year, month - 1);
+            const [y, m] = monthStr.split('-');
+            const date = new Date(y, m - 1);
             const isRestricted = !props.is_premium && date < threeMonthsAgo;
 
             return {
                 value: monthStr,
-                label: new Intl.DateTimeFormat(page.props.locale || 'en', { month: 'long', year: 'numeric' }).format(date) + (isRestricted ? ' (Pro)' : ''),
+                label: new Intl.DateTimeFormat(page.props.locale || 'id-ID', { month: 'long', year: 'numeric' }).format(date) + (isRestricted ? ' (Pro)' : ''),
                 restricted: isRestricted
             };
         });

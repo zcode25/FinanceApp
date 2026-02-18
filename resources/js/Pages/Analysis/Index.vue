@@ -49,7 +49,11 @@ const skipHTML = `<div class="mt-4 flex justify-start">
     });
     
     // Filters state
-    const selectedMonth = ref(props.filters?.month || new Date().toISOString().slice(0, 7));
+    const getJakartaDate = () => new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+
+    const selectedMonth = ref(props.filters?.month || getJakartaDate().slice(0, 7));
     
     // Watch filters and reload
     watch(selectedMonth, (newMonth) => {
