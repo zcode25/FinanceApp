@@ -9,6 +9,7 @@ use App\Models\Category;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardService
 {
@@ -26,8 +27,9 @@ class DashboardService
         $userId = Auth::id();
         $now = Carbon::now();
 
-        // Calculate resolved month if none provided
-        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
+        // Calculate resolved month if none provided. 
+        // Force range calculation here because we need it for available_months dropdown.
+        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month, true);
         $month = $resolvedMonth['month'];
         $statsRange = $resolvedMonth['range'];
 
@@ -314,15 +316,28 @@ class DashboardService
         return $months;
     }
 
-    private function resolveEffectiveMonth($userId, $month = null)
+    private function resolveEffectiveMonth($userId, $month = null, $forceRange = false)
     {
-        $statsRange = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
-            ->first();
+        // If month is already specified and we don't strictly need the range object 
+        // (e.g. for charts/transactions segments), we can skip the SQL query.
+        if ($month && !$forceRange) {
+            return [
+                'month' => $month,
+                'range' => null
+            ];
+        }
+
+        // Cache the range query for 1 minute to sync across the 4 requests 
+        // triggered by Inertia's deferred props on the same page load.
+        $statsRange = Cache::remember("user_{$userId}_tx_range_v2", 60, function () use ($userId) {
+            return Transaction::where('user_id', $userId)
+                ->where('is_active', true)
+                ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
+                ->first();
+        });
 
         if (!$month) {
-            $month = $statsRange->max_date 
+            $month = ($statsRange && $statsRange->max_date)
                 ? Carbon::parse($statsRange->max_date)->format('Y-m') 
                 : Carbon::now()->format('Y-m');
         }
