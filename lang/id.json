@@ -203,7 +203,7 @@
     "delete_goal_title": "Hapus Goal?",
     "delete_goal_text": "Apakah Anda yakin ingin menghapus goal ini? Tindakan ini tidak dapat dibatalkan.",
     "delete_transaction_title": "Hapus Transaksi?",
-    "delete_transaction_text": "Ini akan membatalkan pembaruan saldo untuk transaksi ini. Apakah Anda yakin?",
+    "delete_transaction_confirm": "Ini akan membatalkan pembaruan saldo untuk transaksi ini. Apakah Anda yakin?",
     "delete_category_text": "Hapus \":name\"? Ini akan menghapus kategori secara permanen.",
     "create_wallet": "Buat Dompet",
     "wallet_name": "Nama Dompet",

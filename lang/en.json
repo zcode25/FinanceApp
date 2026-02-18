@@ -204,7 +204,7 @@
     "delete_goal_title": "Delete Goal?",
     "delete_goal_text": "Are you sure you want to delete this goal? This action cannot be undone.",
     "delete_transaction_title": "Delete Transaction?",
-    "delete_transaction_text": "This will revert the balance update for this transaction. Are you sure?",
+    "delete_transaction_confirm": "This will revert the balance update for this transaction. Are you sure?",
     "delete_category_text": "Delete \":name\"? This will permanently remove the category.",
     "create_wallet": "Create Wallet",
     "wallet_name": "Wallet Name",
