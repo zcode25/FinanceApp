@@ -14,12 +14,14 @@ class AnalysisController extends Controller
 {
     public function index(Request $request)
     {
-        $analysisService = app(AnalysisService::class);
-        $user = $request->user();
+        $user = Auth::user();
+        $month = $request->input('month');
+        $availableMonths = $this->getAvailableMonths($user, $month);
 
-        $month = $request->input('month', Carbon::now()->format('Y-m'));
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
+
+        $analysisService = app(AnalysisService::class);
 
         return Inertia::render('Analysis/Index', [
             'summary' => $analysisService->getSummary($startDate, $endDate),
@@ -31,28 +33,22 @@ class AnalysisController extends Controller
             'filters' => [
                 'month' => $month,
             ],
-            'availableMonths' => $this->getAvailableMonths($user),
+            'availableMonths' => $availableMonths,
+            'selectedMonth' => $month,
             'is_premium' => $user?->is_premium ?? false
         ]);
     }
 
-    private function getAvailableMonths($user)
+    private function getAvailableMonths($user, &$selectedMonth = null)
     {
-        $availableMonths = Transaction::where('user_id', $user?->id)
+        $stats = Transaction::where('user_id', $user?->id)
             ->where('is_active', true)
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
-            ->distinct()
-            ->orderBy('month_value', 'desc')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'value' => $item->month_value,
-                    'label' => Carbon::createFromFormat('Y-m', $item->month_value)->translatedFormat('F Y'),
-                ];
-            });
+            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
+            ->first();
 
-        if ($availableMonths->isEmpty()) {
+        if (!$stats || !$stats->min_date) {
             $now = Carbon::now();
+            $selectedMonth = $selectedMonth ?: $now->format('Y-m');
             return collect([
                 [
                     'value' => $now->format('Y-m'),
@@ -61,7 +57,24 @@ class AnalysisController extends Controller
             ]);
         }
 
-        return $availableMonths;
+        // Set default selected month to latest transaction if not provided
+        if (!$selectedMonth) {
+            $selectedMonth = Carbon::parse($stats->max_date)->format('Y-m');
+        }
+
+        $startDate = Carbon::parse($stats->min_date)->startOfMonth();
+        $endDate = Carbon::parse($stats->max_date)->startOfMonth();
+        $months = collect();
+
+        while ($startDate->lte($endDate)) {
+            $months->push([
+                'value' => $endDate->format('Y-m'),
+                'label' => $endDate->translatedFormat('F Y')
+            ]);
+            $endDate->subMonth();
+        }
+
+        return $months;
     }
 
     private function getSmartInsights($service, $startDate, $endDate, $user)

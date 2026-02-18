@@ -57,7 +57,7 @@ const skipHTML = `<div class="mt-4 flex justify-start">
             preserveState: true,
             preserveScroll: true,
             replace: true, // Use replace to avoid history stack buildup
-            only: ['summary', 'categorySpending', 'filters', 'cashFlowTrend', 'smartInsights', 'walletAllocation', 'availableMonths', 'financialTips']
+            only: ['summary', 'categorySpending', 'filters', 'cashFlowTrend', 'smartInsights', 'walletAllocation', 'availableMonths', 'financialTips', 'selectedMonth']
         });
     });
     

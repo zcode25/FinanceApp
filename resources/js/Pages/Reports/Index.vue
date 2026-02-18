@@ -113,7 +113,7 @@ import PremiumUpsellModal from '@/Shared/PremiumUpsellModal.vue';
             preserveState: true,
             preserveScroll: true,
             replace: true,
-            only: ['reports_data', 'filters']
+            only: ['reports_data', 'filters', 'availableMonths']
         });
     });
     

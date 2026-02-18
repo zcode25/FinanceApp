@@ -20,7 +20,31 @@ class ReportController extends Controller
         $isPremium = $user?->is_premium ?? false;
         $reportService = app(ReportService::class);
 
-        $month = $request->input('month', Carbon::now()->format('Y-m'));
+        // Find min/max transaction dates once
+        $stats = Transaction::where('user_id', $user?->id)
+            ->where('is_active', true)
+            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
+            ->first();
+
+        // Determine available months first
+        if (!$stats || !$stats->min_date) {
+            $now = Carbon::now();
+            $availableMonths = collect([$now->format('Y-m')]);
+            $defaultMonth = $now->format('Y-m');
+        } else {
+            $startDateRange = Carbon::parse($stats->min_date)->startOfMonth();
+            $endDateRange = Carbon::parse($stats->max_date)->startOfMonth();
+            $availableMonths = collect();
+            $defaultMonth = $endDateRange->format('Y-m');
+
+            while ($startDateRange->lte($endDateRange)) {
+                $availableMonths->push($endDateRange->format('Y-m'));
+                $endDateRange->subMonth();
+            }
+        }
+
+        // Get selected month from request or use default
+        $month = $request->input('month', $defaultMonth);
         $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
 
@@ -32,19 +56,6 @@ class ReportController extends Controller
                 $startDate = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
                 $endDate = Carbon::createFromFormat('Y-m', $month)->endOfMonth();
             }
-        }
-
-        // Pass available months for dropdown (filtered by current user)
-        $availableMonths = Transaction::where('user_id', $user?->id)
-            ->where('is_active', true)
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month_value')
-            ->distinct()
-            ->orderBy('month_value', 'desc')
-            ->pluck('month_value');
-
-        // Fallback to current month if no transactions
-        if ($availableMonths->isEmpty()) {
-            $availableMonths = collect([Carbon::now()->format('Y-m')]);
         }
 
         return Inertia::render('Reports/Index', [

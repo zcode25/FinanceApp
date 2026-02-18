@@ -23,15 +23,29 @@ class DashboardService
 
     public function getBasicData($month = null)
     {
+        $userId = Auth::id();
         $now = Carbon::now();
-        $selectedDate = $month ? Carbon::parse($month . '-01') : $now;
+
+        // Find min/max transaction dates once
+        $statsRange = Transaction::where('user_id', $userId)
+            ->where('is_active', true)
+            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
+            ->first();
+
+        // Determine default month if none provided
+        if (!$month) {
+            $month = $statsRange->max_date 
+                ? Carbon::parse($statsRange->max_date)->format('Y-m') 
+                : $now->format('Y-m');
+        }
+
+        $selectedDate = Carbon::parse($month . '-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
         $monthStr = $selectedDate->format('Y-m');
         
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        $userId = $user?->id;
 
         $stats = $this->getAggregatedStats($userId, $startOfMonth, $endOfMonth);
         $totalBudget = Budget::where('user_id', $userId)->where('month', $monthStr)->sum('limit');
@@ -56,7 +70,7 @@ class DashboardService
                 'selected_month' => $monthStr,
                 'selected_month_label' => $selectedDate->translatedFormat('F Y')
             ],
-            'available_months' => $this->getAvailableMonths($userId, $now),
+            'available_months' => $this->generateAvailableMonthsFromRange($statsRange, $now),
             'subscription' => [
                 'is_premium' => (bool) ($user?->is_premium),
                 'plan_id' => $user?->current_plan_id ?? 1,
@@ -266,22 +280,9 @@ class DashboardService
         });
     }
 
-    private function getAvailableMonths($userId, $now)
+    private function generateAvailableMonthsFromRange($range, $now)
     {
-        $availableMonths = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->select(DB::raw("DATE_FORMAT(date, '%Y-%m') as value"))
-            ->groupBy('value')
-            ->orderBy('value', 'desc')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'value' => $item->value,
-                    'label' => Carbon::parse($item->value . '-01')->translatedFormat('F Y')
-                ];
-            });
-
-        if ($availableMonths->isEmpty()) {
+        if (!$range || !$range->min_date) {
             return collect([
                 [
                     'value' => $now->format('Y-m'),
@@ -289,6 +290,20 @@ class DashboardService
                 ]
             ]);
         }
-        return $availableMonths;
+
+        $startDate = Carbon::parse($range->min_date)->startOfMonth();
+        $endDate = Carbon::parse($range->max_date)->startOfMonth();
+        
+        $months = collect();
+
+        while ($startDate->lte($endDate)) {
+            $months->push([
+                'value' => $endDate->format('Y-m'),
+                'label' => $endDate->translatedFormat('F Y')
+            ]);
+            $endDate->subMonth();
+        }
+
+        return $months;
     }
 }

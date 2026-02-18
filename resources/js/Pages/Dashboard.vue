@@ -122,7 +122,7 @@ watch(selectedMonth, (newMonth) => {
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        only: ['summary', 'deferred_charts', 'deferred_breakdown', 'deferred_transactions', 'subscription']
+        only: ['summary', 'available_months', 'deferred_charts', 'deferred_breakdown', 'deferred_transactions', 'subscription']
     });
 });
 
