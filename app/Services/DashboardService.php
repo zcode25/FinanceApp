@@ -26,18 +26,10 @@ class DashboardService
         $userId = Auth::id();
         $now = Carbon::now();
 
-        // Find min/max transaction dates once
-        $statsRange = Transaction::where('user_id', $userId)
-            ->where('is_active', true)
-            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
-            ->first();
-
-        // Determine default month if none provided
-        if (!$month) {
-            $month = $statsRange->max_date 
-                ? Carbon::parse($statsRange->max_date)->format('Y-m') 
-                : $now->format('Y-m');
-        }
+        // Calculate resolved month if none provided
+        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
+        $month = $resolvedMonth['month'];
+        $statsRange = $resolvedMonth['range'];
 
         $selectedDate = Carbon::parse($month . '-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
@@ -83,7 +75,10 @@ class DashboardService
 
     public function getChartsData($month = null)
     {
-        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        $userId = Auth::id();
+        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
+        $month = $resolvedMonth['month'];
+        $selectedDate = Carbon::parse($month . '-01');
         
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -100,7 +95,11 @@ class DashboardService
 
     public function getBreakdownData($month = null)
     {
-        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        $userId = Auth::id();
+        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
+        $month = $resolvedMonth['month'];
+
+        $selectedDate = Carbon::parse($month . '-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
         
@@ -141,7 +140,11 @@ class DashboardService
 
     public function getRecentTransactions($month = null)
     {
-        $selectedDate = $month ? Carbon::parse($month . '-01') : Carbon::now();
+        $userId = Auth::id();
+        $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
+        $month = $resolvedMonth['month'];
+
+        $selectedDate = Carbon::parse($month . '-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
         
@@ -172,7 +175,10 @@ class DashboardService
     protected function getCachedWallets($userId)
     {
         if ($this->walletsCache === null) {
-            $this->walletsCache = Wallet::where('user_id', $userId)->where('is_active', true)->get();
+            $this->walletsCache = Wallet::where('user_id', $userId)
+                ->where('is_active', true)
+                ->get()
+                ->keyBy('id');
         }
         return $this->walletsCache;
     }
@@ -192,7 +198,8 @@ class DashboardService
 
         if ($missingIds->isNotEmpty()) {
             $newCategories = Category::whereIn('id', $missingIds)->get()->keyBy('id');
-            $this->categoriesCache = $this->categoriesCache->merge($newCategories);
+            // Use union() to preserve numeric keys
+            $this->categoriesCache = $this->categoriesCache->union($newCategories);
         }
 
         return $this->categoriesCache->only($ids);
@@ -305,5 +312,24 @@ class DashboardService
         }
 
         return $months;
+    }
+
+    private function resolveEffectiveMonth($userId, $month = null)
+    {
+        $statsRange = Transaction::where('user_id', $userId)
+            ->where('is_active', true)
+            ->selectRaw('MIN(date) as min_date, MAX(date) as max_date')
+            ->first();
+
+        if (!$month) {
+            $month = $statsRange->max_date 
+                ? Carbon::parse($statsRange->max_date)->format('Y-m') 
+                : Carbon::now()->format('Y-m');
+        }
+
+        return [
+            'month' => $month,
+            'range' => $statsRange
+        ];
     }
 }
