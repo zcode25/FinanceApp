@@ -2,7 +2,7 @@
 import Layout from '../../Shared/Layout.vue';
 import Swal from 'sweetalert2';
 import { Head, Link, useForm, router, usePage, Deferred } from '@inertiajs/vue3';
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 
 const page = usePage();
 const __ = (key) => page.props.translations?.[key] || key;
@@ -177,7 +177,9 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
     };
 
     // Reset index if filtered list changes
-    watch(filteredRecommendations, () => {
+    watch(filteredRecommendations, async () => {
+        await nextTick();
+        updateDimensions();
         if (activeRecIndex.value > maxIndex.value) {
             activeRecIndex.value = 0;
         }
@@ -188,6 +190,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
     const containerWidth = ref(0);
     const GAP = 24; // gap-6 is 24px
 
+    let resizeObserver = null;
     const updateDimensions = () => {
         updateVisibleItems();
         if (carouselContainer.value) {
@@ -315,6 +318,13 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
         }, 100);
         window.addEventListener('resize', updateDimensions);
 
+        if (carouselContainer.value) {
+            resizeObserver = new ResizeObserver(() => {
+                updateDimensions();
+            });
+            resizeObserver.observe(carouselContainer.value);
+        }
+
         checkTourTriggers();
         window.addEventListener('skip-tour', () => {
             localStorage.removeItem('tour_state');
@@ -334,6 +344,9 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
     });
     onUnmounted(() => {
         window.removeEventListener('resize', updateDimensions);
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+        }
         if (driverObj.value) {
             driverObj.value.destroy();
         }
@@ -734,7 +747,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                         <p class="text-sm text-slate-500 font-medium">{{ __('ai_powered_optimizations') }}</p>
                     </div>
                     <!-- Carousel Controls -->
-                    <div v-if="filteredRecommendations.length > visibleItems" class="hidden md:flex items-center gap-3">
+                    <div v-if="filteredRecommendations.length > visibleItems" class="hidden md:flex items-center gap-3 relative z-40">
                         <button @click="prevRec" :disabled="activeRecIndex === 0" class="p-3 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 disabled:opacity-30 transition-all shadow-sm hover:shadow-md">
                             <ChevronLeft class="w-5 h-5" />
                         </button>
