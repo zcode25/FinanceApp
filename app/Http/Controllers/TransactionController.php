@@ -14,11 +14,38 @@ class TransactionController extends Controller
 {
     public function index(Request $request)
     {
-        // Base query for the transaction list (will be filtered)
         $query = Transaction::with(['wallet', 'category'])
             ->where('user_id', $request->user()->id)
-            ->where('is_active', true)
-            ->orderBy('date', 'desc')
+            ->where('is_active', true);
+
+        // Apply Filters
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                  ->orWhereHas('category', function ($cq) use ($search) {
+                      $cq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('wallet_id')) {
+            $query->where('wallet_id', $request->input('wallet_id'));
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+
+        if ($request->filled('start_date')) {
+            $query->where('date', '>=', $request->input('start_date'));
+        }
+
+        if ($request->filled('end_date')) {
+            $query->where('date', '<=', $request->input('end_date'));
+        }
+
+        $query->orderBy('date', 'desc')
             ->orderBy('created_at', 'desc');
 
         $exchangeRateService = app(ExchangeRateService::class);
@@ -44,9 +71,37 @@ class TransactionController extends Controller
             'currentExchangeRate' => $currentRate,
             'summary' => Inertia::defer(function () use ($request) {
                 // Calculate summary only when requested
-                $summary = Transaction::where('user_id', $request->user()->id)
-                    ->where('is_active', true)
-                    ->select(
+                $summaryQuery = Transaction::where('user_id', $request->user()->id)
+                    ->where('is_active', true);
+
+                // Apply Same Filters to Summary
+                if ($request->filled('search')) {
+                    $search = $request->input('search');
+                    $summaryQuery->where(function ($q) use ($search) {
+                        $q->where('description', 'like', "%{$search}%")
+                          ->orWhereHas('category', function ($cq) use ($search) {
+                              $cq->where('name', 'like', "%{$search}%");
+                          });
+                    });
+                }
+
+                if ($request->filled('wallet_id')) {
+                    $summaryQuery->where('wallet_id', $request->input('wallet_id'));
+                }
+
+                if ($request->filled('type')) {
+                    $summaryQuery->where('type', $request->input('type'));
+                }
+
+                if ($request->filled('start_date')) {
+                    $summaryQuery->where('date', '>=', $request->input('start_date'));
+                }
+
+                if ($request->filled('end_date')) {
+                    $summaryQuery->where('date', '<=', $request->input('end_date'));
+                }
+
+                $summary = $summaryQuery->select(
                         DB::raw('SUM(CASE WHEN type = "income" THEN amount_in_base_currency ELSE 0 END) as total_income'),
                         DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency ELSE 0 END) as total_expense'),
                         DB::raw('COUNT(CASE WHEN type = "income" THEN 1 END) as total_income_count'),
