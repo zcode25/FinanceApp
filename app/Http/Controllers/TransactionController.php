@@ -70,38 +70,10 @@ class TransactionController extends Controller
             'wallets' => Wallet::where('user_id', $request->user()->id)->where('is_active', true)->get(),
             'currentExchangeRate' => $currentRate,
             'summary' => Inertia::defer(function () use ($request) {
-                // Calculate summary only when requested
-                $summaryQuery = Transaction::where('user_id', $request->user()->id)
-                    ->where('is_active', true);
-
-                // Apply Same Filters to Summary
-                if ($request->filled('search')) {
-                    $search = $request->input('search');
-                    $summaryQuery->where(function ($q) use ($search) {
-                        $q->where('description', 'like', "%{$search}%")
-                          ->orWhereHas('category', function ($cq) use ($search) {
-                              $cq->where('name', 'like', "%{$search}%");
-                          });
-                    });
-                }
-
-                if ($request->filled('wallet_id')) {
-                    $summaryQuery->where('wallet_id', $request->input('wallet_id'));
-                }
-
-                if ($request->filled('type')) {
-                    $summaryQuery->where('type', $request->input('type'));
-                }
-
-                if ($request->filled('start_date')) {
-                    $summaryQuery->where('date', '>=', $request->input('start_date'));
-                }
-
-                if ($request->filled('end_date')) {
-                    $summaryQuery->where('date', '<=', $request->input('end_date'));
-                }
-
-                $summary = $summaryQuery->select(
+                // Calculate summary for the USER, ignoring search/filters
+                $summary = Transaction::where('user_id', $request->user()->id)
+                    ->where('is_active', true)
+                    ->select(
                         DB::raw('SUM(CASE WHEN type = "income" THEN amount_in_base_currency ELSE 0 END) as total_income'),
                         DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency ELSE 0 END) as total_expense'),
                         DB::raw('COUNT(CASE WHEN type = "income" THEN 1 END) as total_income_count'),
