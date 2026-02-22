@@ -207,6 +207,11 @@ class TransactionController extends Controller
                 $validated['amount_in_base_currency'] = $validated['amount'];
             }
 
+            // Ensure fee is 0 if null
+            if ($validated['type'] === 'transfer') {
+                $validated['fee'] = $validated['fee'] ?? 0;
+            }
+
             // Create Transaction
             $validated['user_id'] = $request->user()->id;
             $transaction = Transaction::create($validated);

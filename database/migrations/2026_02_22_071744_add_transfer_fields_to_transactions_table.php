@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('transactions', function (Blueprint $table) {
             $table->foreignId('target_wallet_id')->nullable()->constrained('wallets')->nullOnDelete();
-            $table->decimal('fee', 15, 2)->default(0);
+            $table->decimal('fee', 15, 2)->default(0)->nullable();
         });
 
         if (\Illuminate\Support\Facades\DB::getDriverName() === 'mysql') {
