@@ -887,37 +887,39 @@ const loadMore = async () => {
                             @click="openDetailModal(tx)"
                             class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-pointer active:bg-slate-50"
                         >
-                            <div class="flex justify-between items-start">
-                                <div class="flex flex-col gap-1">
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="flex flex-col gap-1 min-w-0 flex-1">
                                     <p class="text-[10px] font-bold text-slate-400 tracking-wider">
                                         {{ new Date(tx.date).getDate() }} {{ new Date(tx.date).toLocaleDateString(page.props.locale || 'id-ID', { month: 'short' }) }} {{ new Date(tx.date).getFullYear() }}
                                     </p>
-                                    <div>
+                                    <div class="min-w-0">
                                         <h4 class="text-[14px] font-bold text-slate-900 line-clamp-1 leading-tight mb-1.5">
                                             {{ tx.type === 'transfer' ? (tx.computed_type === 'transfer_in' ? (tx.description || ('Transfer from ' + (tx.wallet?.name || 'Wallet'))) : (tx.description || ('Transfer to ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Wallet')))) : (tx.description || (tx.category ? tx.category.name : __('unknown'))) }}
                                         </h4>
-                                        <div class="flex items-center gap-2">
-                                            <span v-if="tx.type === 'transfer'" class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap bg-indigo-500">
+                                        <div class="flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
+                                            <span v-if="tx.type === 'transfer'" class="inline-flex flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap bg-indigo-500">
                                                 {{ tx.computed_type === 'transfer_in' ? 'Transfer In' : 'Transfer Out' }}
                                             </span>
                                             <span 
                                                 v-else
-                                                class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap"
+                                                class="inline-flex flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap"
                                                 :class="tx.category?.color || 'bg-slate-500'"
                                             >
                                                 {{ tx.category ? tx.category.name : __('uncategorized') }}
                                             </span>
-                                            <span class="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
-                                                <div class="w-1.5 h-1.5 rounded-full" :class="getTypeColor(tx.wallet?.type)"></div>
-                                                {{ tx.computed_type === 'transfer_in' ? (tx.target_wallet?.name || tx.targetWallet?.name || __('unknown')) : (tx.wallet ? tx.wallet.name : __('unknown')) }}
-                                                <span v-if="tx.type === 'transfer'" class="text-slate-400 ml-0.5">
-                                                    {{ tx.computed_type === 'transfer_in' ? '← ' + (tx.wallet?.name || 'Unknown') : '→ ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Unknown') }}
+                                            <span class="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 min-w-0">
+                                                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="getTypeColor(tx.wallet?.type)"></div>
+                                                <span class="truncate">
+                                                    {{ tx.computed_type === 'transfer_in' ? (tx.target_wallet?.name || tx.targetWallet?.name || __('unknown')) : (tx.wallet ? tx.wallet.name : __('unknown')) }}
+                                                    <span v-if="tx.type === 'transfer'" class="text-slate-400 ml-0.5">
+                                                        {{ tx.computed_type === 'transfer_in' ? '← ' + (tx.wallet?.name || 'Unknown') : '→ ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Unknown') }}
+                                                    </span>
                                                 </span>
                                             </span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="text-right ml-4">
+                                <div class="text-right flex-shrink-0">
                                     <span :class="['text-[14px] font-bold tabular-nums tracking-tight block', (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? 'text-slate-900' : 'text-emerald-600']">
                                         {{ (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? '-' : '+' }} {{ new Intl.NumberFormat(tx.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: tx.currency || 'IDR', maximumFractionDigits: 0 }).format(tx.computed_type === 'transfer_out' ? Number(tx.amount) + Number(tx.fee || 0) : tx.amount) }}
                                     </span>
