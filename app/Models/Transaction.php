@@ -19,6 +19,8 @@ class Transaction extends Model
         'amount_in_base_currency',
         'is_active',
         'user_id',
+        'target_wallet_id',
+        'fee',
     ];
 
     public function user()
@@ -34,5 +36,10 @@ class Transaction extends Model
     public function wallet()
     {
         return $this->belongsTo(Wallet::class);
+    }
+
+    public function targetWallet()
+    {
+        return $this->belongsTo(Wallet::class, 'target_wallet_id');
     }
 }

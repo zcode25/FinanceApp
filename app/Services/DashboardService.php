@@ -166,12 +166,34 @@ class DashboardService
         $categoryIds = $recentTransactions->pluck('category_id')->filter()->unique();
         $categoriesById = $this->getCachedCategories($categoryIds);
 
-        $recentTransactions->each(function ($tx) use ($walletsById, $categoriesById) {
+        $mappedTransactions = $recentTransactions->flatMap(function ($tx) use ($walletsById, $categoriesById) {
+            $results = [];
+            
             $tx->setRelation('wallet', $walletsById->get($tx->wallet_id));
             $tx->setRelation('category', $categoriesById->get($tx->category_id));
+
+            if ($tx->type === 'transfer') {
+                $targetWallet = $walletsById->get($tx->target_wallet_id) ?? Wallet::find($tx->target_wallet_id);
+                $tx->setRelation('targetWallet', $targetWallet);
+
+                // Source view (Transfer Out)
+                $sourceTx = clone $tx;
+                $sourceTx->setAttribute('computed_type', 'transfer_out');
+                $results[] = $sourceTx;
+                
+                // Target view (Transfer In)
+                $targetTx = clone $tx;
+                $targetTx->setAttribute('computed_type', 'transfer_in');
+                $results[] = $targetTx;
+            } else {
+                $tx->setAttribute('computed_type', $tx->type);
+                $results[] = $tx;
+            }
+            
+            return $results;
         });
 
-        return $recentTransactions;
+        return $mappedTransactions->sortByDesc('date')->take(5)->values();
     }
 
     protected function getCachedWallets($userId)
@@ -230,11 +252,11 @@ class DashboardService
             ->where('is_active', true)
             ->selectRaw("
                 SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as lifetime_income,
-                SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as lifetime_expense,
+                SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency WHEN type = 'transfer' THEN fee ELSE 0 END) as lifetime_expense,
                 SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount_in_base_currency ELSE 0 END) as monthly_income,
-                SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN amount_in_base_currency ELSE 0 END) as monthly_expense,
-                SUM(CASE WHEN type = 'expense' AND date >= ? THEN amount_in_base_currency ELSE 0 END) as last_3_months_expense
-            ", [$startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $last3Months])
+                SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN amount_in_base_currency WHEN type = 'transfer' AND date BETWEEN ? AND ? THEN fee ELSE 0 END) as monthly_expense,
+                SUM(CASE WHEN type = 'expense' AND date >= ? THEN amount_in_base_currency WHEN type = 'transfer' AND date >= ? THEN fee ELSE 0 END) as last_3_months_expense
+            ", [$startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $last3Months, $last3Months])
             ->first();
     }
 
@@ -249,7 +271,7 @@ class DashboardService
             ->select(
                 DB::raw("DAY(date) as day"),
                 DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
-                DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
+                DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency WHEN type = 'transfer' THEN fee ELSE 0 END) as expense")
             )
             ->groupBy('day')
             ->get()

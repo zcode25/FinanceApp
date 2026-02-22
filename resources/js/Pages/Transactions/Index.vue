@@ -9,7 +9,7 @@ const driverObj = ref(null);
 const skipHTML = `<div class="mt-4 flex justify-start">
     <button onclick="window.dispatchEvent(new CustomEvent('skip-tour'))" class="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition-colors">Skip Tutorial</button>
 </div>`;
-import { Plus, X, Search, Filter, Pencil, Trash2, TrendingUp, TrendingDown, Scale, Activity, ChevronDown } from 'lucide-vue-next';
+import { Plus, X, Search, Filter, Pencil, Trash2, TrendingUp, TrendingDown, Scale, Activity, ChevronDown, ArrowRightLeft } from 'lucide-vue-next';
 import CurrencyInput from '../../Shared/CurrencyInput.vue';
 import CategoryCombobox from '../../Shared/CategoryCombobox.vue';
 import SearchableSelect from '../../Shared/SearchableSelect.vue';
@@ -214,7 +214,9 @@ const loadMore = async () => {
         date: getJakartaDate(),
         description: '',
         wallet_id: '',
-        exchange_rate: ''
+        exchange_rate: '',
+        target_wallet_id: '',
+        fee: ''
     });
     
     const openAddModal = () => {
@@ -240,6 +242,8 @@ const loadMore = async () => {
         form.date = transaction.date;
         form.description = transaction.description || '';
         form.wallet_id = transaction.wallet_id;
+        form.target_wallet_id = transaction.target_wallet_id || '';
+        form.fee = transaction.fee || '';
         showModal.value = true;
     };
     
@@ -248,6 +252,15 @@ const loadMore = async () => {
             value: wallet.id,
             label: wallet.name
         }));
+    });
+
+    const targetWalletOptions = computed(() => {
+        return props.wallets
+            .filter(wallet => wallet.id !== form.wallet_id)
+            .map(wallet => ({
+                value: wallet.id,
+                label: wallet.name
+            }));
     });
     
     const selectedCurrency = computed(() => {
@@ -770,7 +783,7 @@ const loadMore = async () => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-50">
-                                    <tr v-for="tx in desktopTransactions" :key="tx.id" class="group hover:bg-slate-50/80 transition-colors">
+                                    <tr v-for="tx in desktopTransactions" :key="tx.id + '_' + tx.computed_type" class="group hover:bg-slate-50/80 transition-colors">
                                         <!-- Date -->
                                         <td class="px-6 py-4">
                                             <div class="text-sm font-semibold text-slate-700 whitespace-nowrap">
@@ -781,7 +794,7 @@ const loadMore = async () => {
                                         <!-- Description -->
                                         <td class="px-6 py-4">
                                             <div class="text-sm font-normal text-slate-900 group-hover:text-indigo-900 transition-colors">
-                                                {{ tx.description || (tx.category ? tx.category.name : __('unknown')) }}
+                                                {{ tx.type === 'transfer' ? (tx.computed_type === 'transfer_in' ? (tx.description || ('Transfer from ' + (tx.wallet?.name || 'Wallet'))) : (tx.description || ('Transfer to ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Wallet')))) : (tx.description || (tx.category ? tx.category.name : __('unknown'))) }}
                                             </div>
                                         </td>
 
@@ -789,13 +802,22 @@ const loadMore = async () => {
                                         <td class="px-6 py-4">
                                             <div class="flex items-center gap-2">
                                                 <div class="w-2 h-2 rounded-full" :class="getTypeColor(tx.wallet?.type)"></div>
-                                                <span class="text-sm font-semibold text-slate-600">{{ tx.wallet ? tx.wallet.name : __('unknown') }}</span>
+                                                <span class="text-sm font-semibold text-slate-600">
+                                                    {{ tx.computed_type === 'transfer_in' ? (tx.target_wallet?.name || tx.targetWallet?.name || __('unknown')) : (tx.wallet ? tx.wallet.name : __('unknown')) }}
+                                                    <span v-if="tx.type === 'transfer'" class="text-slate-400 font-normal ml-1">
+                                                        {{ tx.computed_type === 'transfer_in' ? '← ' + (tx.wallet?.name || 'Unknown') : '→ ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Unknown') }}
+                                                    </span>
+                                                </span>
                                             </div>
                                         </td>
                                         
                                         <!-- Category -->
                                         <td class="px-6 py-4">
+                                            <span v-if="tx.type === 'transfer'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 bg-indigo-500">
+                                                {{ tx.computed_type === 'transfer_in' ? 'Transfer In' : 'Transfer Out' }}
+                                            </span>
                                             <span 
+                                                v-else
                                                 class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20"
                                                 :class="tx.category?.color || 'bg-slate-500'"
                                             >
@@ -806,8 +828,8 @@ const loadMore = async () => {
                                         <!-- Amount -->
                                         <td class="px-6 py-4 text-right px-8">
                                             <div class="space-y-1">
-                                                <span :class="['text-sm font-bold tabular-nums block', tx.type === 'expense' ? 'text-slate-900' : 'text-emerald-600']">
-                                                    {{ tx.type === 'expense' ? '-' : '+' }} {{ new Intl.NumberFormat(tx.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: tx.currency || 'IDR', maximumFractionDigits: 0 }).format(tx.amount) }}
+                                                <span :class="['text-sm font-bold tabular-nums block', (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? 'text-slate-900' : 'text-emerald-600']">
+                                                    {{ (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? '-' : '+' }} {{ new Intl.NumberFormat(tx.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: tx.currency || 'IDR', maximumFractionDigits: 0 }).format(tx.computed_type === 'transfer_out' ? Number(tx.amount) + Number(tx.fee || 0) : tx.amount) }}
                                                 </span>
                                                 <span v-if="tx.currency !== 'IDR' && tx.amount_in_base_currency" class="text-[10px] text-slate-400 font-bold block">
                                                     ≈ {{ formatIDR(tx.amount_in_base_currency) }}
@@ -861,7 +883,7 @@ const loadMore = async () => {
                     <div class="md:hidden space-y-4 mb-4">
                         <div 
                             v-for="tx in mobileTransactions" 
-                            :key="tx.id" 
+                            :key="tx.id + '_' + tx.computed_type" 
                             @click="openDetailModal(tx)"
                             class="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 cursor-pointer active:bg-slate-50"
                         >
@@ -872,10 +894,14 @@ const loadMore = async () => {
                                     </p>
                                     <div>
                                         <h4 class="text-[14px] font-bold text-slate-900 line-clamp-1 leading-tight mb-1.5">
-                                            {{ tx.description || (tx.category ? tx.category.name : __('unknown')) }}
+                                            {{ tx.type === 'transfer' ? (tx.computed_type === 'transfer_in' ? (tx.description || ('Transfer from ' + (tx.wallet?.name || 'Wallet'))) : (tx.description || ('Transfer to ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Wallet')))) : (tx.description || (tx.category ? tx.category.name : __('unknown'))) }}
                                         </h4>
                                         <div class="flex items-center gap-2">
+                                            <span v-if="tx.type === 'transfer'" class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap bg-indigo-500">
+                                                {{ tx.computed_type === 'transfer_in' ? 'Transfer In' : 'Transfer Out' }}
+                                            </span>
                                             <span 
+                                                v-else
                                                 class="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/20 whitespace-nowrap"
                                                 :class="tx.category?.color || 'bg-slate-500'"
                                             >
@@ -883,14 +909,17 @@ const loadMore = async () => {
                                             </span>
                                             <span class="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
                                                 <div class="w-1.5 h-1.5 rounded-full" :class="getTypeColor(tx.wallet?.type)"></div>
-                                                {{ tx.wallet ? tx.wallet.name : __('unknown') }}
+                                                {{ tx.computed_type === 'transfer_in' ? (tx.target_wallet?.name || tx.targetWallet?.name || __('unknown')) : (tx.wallet ? tx.wallet.name : __('unknown')) }}
+                                                <span v-if="tx.type === 'transfer'" class="text-slate-400 ml-0.5">
+                                                    {{ tx.computed_type === 'transfer_in' ? '← ' + (tx.wallet?.name || 'Unknown') : '→ ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Unknown') }}
+                                                </span>
                                             </span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="text-right ml-4">
-                                    <span :class="['text-[14px] font-bold tabular-nums tracking-tight block', tx.type === 'expense' ? 'text-slate-900' : 'text-emerald-600']">
-                                        {{ tx.type === 'expense' ? '-' : '+' }} {{ new Intl.NumberFormat(tx.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: tx.currency || 'IDR', maximumFractionDigits: 0 }).format(tx.amount) }}
+                                    <span :class="['text-[14px] font-bold tabular-nums tracking-tight block', (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? 'text-slate-900' : 'text-emerald-600']">
+                                        {{ (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? '-' : '+' }} {{ new Intl.NumberFormat(tx.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: tx.currency || 'IDR', maximumFractionDigits: 0 }).format(tx.computed_type === 'transfer_out' ? Number(tx.amount) + Number(tx.fee || 0) : tx.amount) }}
                                     </span>
                                     <span v-if="tx.currency !== 'IDR' && tx.amount_in_base_currency" class="text-[9px] text-slate-400 font-bold block mt-0.5">
                                         ≈ {{ formatIDR(tx.amount_in_base_currency) }}
@@ -970,6 +999,10 @@ const loadMore = async () => {
                                     <TrendingDown class="w-4 h-4" />
                                     {{ __('expense') }}
                                 </button>
+                                <button type="button" @click="form.type = 'transfer'" :class="form.type === 'transfer' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-200' : 'text-slate-500 hover:text-slate-900'" class="flex-1 py-3 rounded-xl transition-all font-bold text-sm flex items-center justify-center gap-2">
+                                    <ArrowRightLeft class="w-4 h-4" />
+                                    Transfer
+                                </button>
                             </div>
                             <div v-if="form.errors.type" class="mt-1 text-[11px] font-bold text-rose-500 ml-1">
                                 {{ form.errors.type }}
@@ -977,7 +1010,7 @@ const loadMore = async () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('wallet') }}</label>
+                                    <label class="block text-xs font-bold text-slate-700 mb-2">{{ form.type === 'transfer' ? __('source_wallet') || 'Source Wallet' : __('wallet') }}</label>
                                     <SearchableSelect 
                                         v-model="form.wallet_id" 
                                         :options="walletOptions" 
@@ -1030,7 +1063,28 @@ const loadMore = async () => {
                                 </div>
                             </div>
 
-                            <div>
+                            <div v-if="form.type === 'transfer'" class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('target_wallet') }}</label>
+                                    <SearchableSelect 
+                                        v-model="form.target_wallet_id" 
+                                        :options="targetWalletOptions" 
+                                        :placeholder="__('select_wallet')" 
+                                    />
+                                    <div v-if="form.errors.target_wallet_id" class="mt-2 text-[11px] font-bold text-rose-500 ml-1">
+                                        {{ form.errors.target_wallet_id }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('admin_fee') }} <span class="text-slate-400 font-medium">({{ __('optional') }})</span></label>
+                                    <CurrencyInput v-model="form.fee" :currency="selectedCurrency" :placeholder="selectedCurrency === 'USD' ? '$ 0' : 'Rp 0'" />
+                                    <div v-if="form.errors.fee" class="mt-2 text-[11px] font-bold text-rose-500 ml-1">
+                                        {{ form.errors.fee }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-else>
                                 <label class="block text-xs font-bold text-slate-700 mb-2">{{ __('category') }}</label>
                                 <CategoryCombobox 
                                     v-model="form.category" 
@@ -1087,10 +1141,9 @@ const loadMore = async () => {
                             </button>
                         </div>
 
-                        <!-- Amount Display -->
                         <div class="text-center py-4">
-                            <span :class="['text-2xl font-bold tracking-tight tabular-nums block', selectedDetailTransaction.type === 'expense' ? 'text-slate-900' : 'text-emerald-500']">
-                                {{ selectedDetailTransaction.type === 'expense' ? '-' : '+' }} {{ new Intl.NumberFormat(selectedDetailTransaction.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: selectedDetailTransaction.currency || 'IDR', maximumFractionDigits: 0 }).format(selectedDetailTransaction.amount) }}
+                            <span :class="['text-2xl font-bold tracking-tight tabular-nums block', (selectedDetailTransaction.computed_type === 'expense' || selectedDetailTransaction.computed_type === 'transfer_out') ? 'text-slate-900' : 'text-emerald-500']">
+                                {{ (selectedDetailTransaction.computed_type === 'expense' || selectedDetailTransaction.computed_type === 'transfer_out') ? '-' : '+' }} {{ new Intl.NumberFormat(selectedDetailTransaction.currency === 'USD' ? 'en-US' : 'id-ID', { style: 'currency', currency: selectedDetailTransaction.currency || 'IDR', maximumFractionDigits: 0 }).format(selectedDetailTransaction.computed_type === 'transfer_out' ? Number(selectedDetailTransaction.amount) + Number(selectedDetailTransaction.fee || 0) : selectedDetailTransaction.amount) }}
                             </span>
                             <span v-if="selectedDetailTransaction.currency !== 'IDR' && selectedDetailTransaction.amount_in_base_currency" class="text-xs text-slate-400 font-bold mt-1 block">
                                 ≈ {{ formatIDR(selectedDetailTransaction.amount_in_base_currency) }}
@@ -1103,12 +1156,16 @@ const loadMore = async () => {
                                 <p class="text-[10px] font-bold text-slate-400">{{ __('wallet') }}</p>
                                 <div class="flex items-center gap-2">
                                     <div class="w-2 h-2 rounded-full" :class="getTypeColor(selectedDetailTransaction.wallet?.type)"></div>
-                                    <p class="text-sm font-bold text-slate-700 truncate">{{ selectedDetailTransaction.wallet?.name }}</p>
+                                    <p class="text-sm font-bold text-slate-700 truncate">{{ selectedDetailTransaction.computed_type === 'transfer_in' ? (selectedDetailTransaction.target_wallet?.name || selectedDetailTransaction.targetWallet?.name) : selectedDetailTransaction.wallet?.name }}</p>
                                 </div>
                             </div>
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                                <p class="text-[10px] font-bold text-slate-400">{{ __('category') }}</p>
+                                <p class="text-[10px] font-bold text-slate-400">{{ selectedDetailTransaction.type === 'transfer' ? (selectedDetailTransaction.computed_type === 'transfer_in' ? __('source_wallet') : __('target_wallet')) : __('category') }}</p>
+                                <span v-if="selectedDetailTransaction.type === 'transfer'" class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold text-white mt-0.5 bg-indigo-500">
+                                    {{ selectedDetailTransaction.computed_type === 'transfer_in' ? (selectedDetailTransaction.wallet?.name || 'Unknown') : (selectedDetailTransaction.target_wallet?.name || selectedDetailTransaction.targetWallet?.name || 'Unknown') }}
+                                </span>
                                 <span 
+                                    v-else
                                     class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold text-white mt-0.5"
                                     :class="selectedDetailTransaction.category?.color || 'bg-slate-500'"
                                 >

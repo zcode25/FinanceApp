@@ -1267,23 +1267,31 @@ const marketingInsight = computed(() => {
                                     </td>
                                     <td class="px-8 py-4">
                                         <div class="text-sm font-normal text-slate-900 group-hover:text-indigo-900 transition-colors">
-                                            {{ tx.description }}
+                                            {{ tx.type === 'transfer' ? (tx.computed_type === 'transfer_in' ? (tx.description || ('Transfer from ' + (tx.wallet?.name || 'Wallet'))) : (tx.description || ('Transfer to ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Wallet')))) : (tx.description || (tx.category ? tx.category.name : __('unknown'))) }}
                                         </div>
                                     </td>
                                     <td class="px-8 py-4">
                                         <div class="flex items-center gap-2">
-                                            <div class="w-2 h-2 rounded-full" :class="getDotColor(typeof tx.wallet === 'object' ? tx.wallet?.type : 'cash')"></div>
-                                            <span class="text-sm font-semibold text-slate-600">{{ typeof tx.wallet === 'object' ? tx.wallet?.name : (tx.wallet || 'Cash') }}</span>
+                                            <div class="w-2 h-2 rounded-full" :class="getDotColor(tx.wallet?.type)"></div>
+                                            <span class="text-sm font-semibold text-slate-600">
+                                                {{ tx.computed_type === 'transfer_in' ? (tx.target_wallet?.name || tx.targetWallet?.name || __('unknown')) : (tx.wallet ? tx.wallet.name : __('unknown')) }}
+                                                <span v-if="tx.type === 'transfer'" class="text-slate-400 font-normal ml-1">
+                                                    {{ tx.computed_type === 'transfer_in' ? '← ' + (tx.wallet?.name || 'Unknown') : '→ ' + (tx.target_wallet?.name || tx.targetWallet?.name || 'Unknown') }}
+                                                </span>
+                                            </span>
                                         </div>
                                     </td>
                                     <td class="px-8 py-4">
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm" :class="tx.category?.color || 'bg-slate-500'">
-                                            {{ tx.category ? tx.category.name : 'Uncategorized' }}
+                                        <span v-if="tx.type === 'transfer'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm bg-indigo-500">
+                                            {{ tx.computed_type === 'transfer_in' ? 'Transfer In' : 'Transfer Out' }}
+                                        </span>
+                                        <span v-else class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm" :class="tx.category?.color || 'bg-slate-500'">
+                                            {{ tx.category ? tx.category.name : __('uncategorized') }}
                                         </span>
                                     </td>
                                     <td class="px-8 py-4 text-right pr-10">
-                                        <span :class="['text-sm font-bold tabular-nums block', tx.type === 'expense' ? 'text-slate-900' : 'text-emerald-600']">
-                                            {{ tx.type === 'expense' ? '-' : '+' }}{{ formatCurrency(tx.amount).split(',')[0] }}
+                                        <span :class="['text-sm font-bold tabular-nums block', (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? 'text-slate-900' : 'text-emerald-600']">
+                                            {{ (tx.computed_type === 'expense' || tx.computed_type === 'transfer_out') ? '-' : '+' }}{{ formatCurrency(tx.computed_type === 'transfer_out' ? Number(tx.amount) + Number(tx.fee || 0) : tx.amount).split(',')[0] }}
                                         </span>
                                     </td>
                                 </tr>

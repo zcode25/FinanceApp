@@ -64,9 +64,9 @@ class ReportController extends Controller
                 return [
                     'reports' => $reports,
                     'totals' => [
-                        'total_income' => collect($reports)->sum(fn($r) => $r['summary']['base_income']),
-                        'total_expense' => collect($reports)->sum(fn($r) => $r['summary']['base_expense']),
-                        'total_net' => collect($reports)->sum(fn($r) => $r['summary']['base_net_flow']),
+                        'total_income' => collect($reports)->sum(fn($r) => $r['summary']['real_base_income']),
+                        'total_expense' => collect($reports)->sum(fn($r) => $r['summary']['real_base_expense']),
+                        'total_net' => collect($reports)->sum(fn($r) => $r['summary']['real_base_income'] - $r['summary']['real_base_expense']),
                     ],
                 ];
             }),
