@@ -39,7 +39,7 @@ class BudgetService
         $result = $budgets->map(function ($budget) use ($spentByCategory) {
             $categoryId = $budget->category_id;
             $spent = (float) ($spentByCategory[$categoryId] ?? 0);
-            $percentage = $budget->limit > 0 ? round(($spent / $budget->limit) * 100) : 0;
+            $percentage = $budget->limit > 0 ? round(($spent / $budget->limit) * 100) : ($spent > 0 ? 100 : 0);
 
             return [
                 'id' => $budget->id,
@@ -79,7 +79,7 @@ class BudgetService
         })->sum('limit');
 
         $remaining = max(0, $totalBudget - $totalSpent);
-        $percentage = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : 0;
+        $percentage = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : ($totalSpent > 0 ? 100 : 0);
 
         // Calculate days remaining
         $now = Carbon::now();
