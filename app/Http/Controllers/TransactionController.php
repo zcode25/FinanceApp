@@ -208,9 +208,7 @@ class TransactionController extends Controller
             }
 
             // Ensure fee is 0 if null
-            if ($validated['type'] === 'transfer') {
-                $validated['fee'] = $validated['fee'] ?? 0;
-            }
+            $validated['fee'] = $validated['fee'] ?? 0;
 
             // Create Transaction
             $validated['user_id'] = $request->user()->id;
@@ -324,6 +322,9 @@ class TransactionController extends Controller
             } else {
                 $validated['amount_in_base_currency'] = $validated['amount'];
             }
+
+            // Ensure fee is 0 if null
+            $validated['fee'] = $validated['fee'] ?? 0;
 
             // 4. Update Transaction
             $transaction->update($validated);
