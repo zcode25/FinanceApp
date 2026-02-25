@@ -111,8 +111,8 @@ const openEditModal = (goal) => {
     form.name = goal.name;
     form.target_amount = goal.target_amount;
     form.type = goal.type;
-    form.target_date = goal.target_date ? new Date(goal.target_date + 'T00:00:00').toLocaleDateString('en-CA') : '';
-    form.start_date = goal.start_date ? new Date(goal.start_date + 'T00:00:00').toLocaleDateString('en-CA') : getJakartaDate();
+    form.target_date = goal.target_date ? goal.target_date.substring(0, 10) : '';
+    form.start_date = goal.start_date ? goal.start_date.substring(0, 10) : getJakartaDate();
     form.notes = goal.notes;
     form.currency = goal.currency;
     form.wallet_ids = goal.wallets.map(w => w.id);
