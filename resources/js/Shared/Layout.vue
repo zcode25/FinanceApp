@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { LayoutDashboard, Wallet, PieChart, Banknote, Settings, Menu, X, User, ChevronDown, FileText, Tag, LogOut, TrendingUp, Target, BadgeCheck, Crown, ShieldAlert, Sparkles, Rocket, Zap } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
+import { onMounted } from 'vue';
+import { App } from '@capacitor/app';
 
 const page = usePage();
 const __ = (key) => page.props.translations?.[key] || key;
@@ -85,6 +87,17 @@ const getAvatarUrl = (avatar) => {
     if (avatar.startsWith('avatars/')) return `/media/${avatar}`;
     return `/media/avatars/${avatar}`;
 };
+
+onMounted(() => {
+  // Deep Link Listener for Capacitor
+  App.addListener('appUrlOpen', (event) => {
+    // Extract path from URL (e.g., https://vibefinance.terasweb.id/dashboard -> /dashboard)
+    const slug = event.url.split('.id').pop();
+    if (slug) {
+      router.visit(slug);
+    }
+  });
+});
 </script>
 
 <template>
@@ -239,7 +252,7 @@ const getAvatarUrl = (avatar) => {
     </main>
 
     <!-- FIXED BOTTOM NAVIGATION (MOBILE ONLY) -->
-    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-6 py-4 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] rounded-t-[2.5rem]">
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-6 py-4 pb-[calc(2rem + env(safe-area-inset-bottom))] shadow-[0_-8px_30_rgba(0,0,0,0.08)] rounded-t-[2.5rem]">
       <nav class="flex items-center justify-around">
         <Link 
           v-for="item in bottomNavItems" 

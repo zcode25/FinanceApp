@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title inertia>VibeFinance</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=3">
     <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}?v=3">
