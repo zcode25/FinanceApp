@@ -659,7 +659,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                             <h2 class="text-2xl md:text-3xl font-bold tracking-tight tabular-nums">{{ formatCurrency(summary.total_spent) }}</h2>
                             <div class="flex items-center gap-2 text-rose-100 font-medium text-xs md:text-sm">
                                 <span>{{ __('used') }}</span>
-                                <span class="bg-white/20 px-2 py-0.5 rounded-lg text-white text-[10px] md:text-xs font-bold backdrop-blur-sm border border-white/10">{{ summary.percentage }}%</span>
+                                <span class="bg-white/20 px-2 py-0.5 rounded-lg text-white text-[10px] md:text-xs font-bold backdrop-blur-sm border border-white/10">{{ summary.percentage !== null ? summary.percentage + '%' : '-' }}</span>
                             </div>
                         </div>
                         <div class="mt-6 w-full h-2 bg-black/20 rounded-full overflow-hidden backdrop-blur-sm">
@@ -926,7 +926,7 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                                         </div>
                                     </div>
                                     <span :class="['text-sm md:text-base font-bold tabular-nums', budget.percentage > 100 ? 'text-rose-600' : 'text-slate-900']">
-                                        {{ budget.percentage }}%
+                                        {{ budget.percentage !== null ? budget.percentage + '%' : '-' }}
                                     </span>
                                 </div>
                                 <div class="w-full h-1 md:h-1.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">

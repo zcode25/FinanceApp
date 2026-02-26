@@ -26,10 +26,12 @@ class TrackerController extends Controller
         }
 
         // 1. Determine the Date Points (Columns)
-        $dates = $this->generateDatePoints($range, $isPremium);
+        $month = $request->input('month');
+        $dates = $this->generateDatePoints($range, $isPremium, $month);
 
         // 2. Fetch User's Wallets (Rows)
         $wallets = Wallet::where('user_id', $user?->id)
+            ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
 
@@ -72,12 +74,21 @@ class TrackerController extends Controller
         $matrix = [];
         $totals = [];
 
-        // Check for USD wallets to determine if conversion is needed for totals
-        $hasUsd = $wallets->contains('currency', 'USD');
-        $rate = 1.0;
-        if ($hasUsd) {
-            $rate = app(\App\Services\ExchangeRateService::class)->getCurrentRate('USD', 'IDR') ?? 16000;
+        // Pre-fetch exchange rates for all non-IDR currencies found in wallets
+        $exchangeRateService = app(\App\Services\ExchangeRateService::class);
+        $currencies = $wallets->pluck('currency')->unique()->filter(fn($c) => $c !== 'IDR');
+        $rates = [];
+        foreach ($currencies as $currency) {
+            $rates[$currency] = $exchangeRateService->getCurrentRate($currency, 'IDR') ?? 1.0;
         }
+
+        // Pre-fetch earliest transaction dates for all wallets to avoid N+1 queries
+        $earliestTransactions = Transaction::whereIn('wallet_id', $walletIds)
+            ->where('is_active', true)
+            ->select('wallet_id', DB::raw('MIN(date) as earliest_date'))
+            ->groupBy('wallet_id')
+            ->get()
+            ->pluck('earliest_date', 'wallet_id');
 
         foreach ($wallets as $wallet) {
             $row = [
@@ -95,8 +106,22 @@ class TrackerController extends Controller
             $reversedDates = array_reverse($dates);
             $tempBalances = [];
 
+            // Determine the "Birth Month" (earliest of created_at or first transaction)
+            $creationMonth = $wallet->created_at->format('Y-m');
+            $firstTxDate = $earliestTransactions[$walletId] ?? null;
+            
+            $birthMonth = $firstTxDate 
+                ? min($creationMonth, Carbon::parse($firstTxDate)->format('Y-m'))
+                : $creationMonth;
+
             foreach ($reversedDates as $datePoint) {
-                $historicalBalance = $currentBalance - $runningSumAfterMatrix;
+                // If the month is before the wallet was even created/active, it should be 0
+                if ($datePoint['key'] < $birthMonth) {
+                    $historicalBalance = 0;
+                } else {
+                    $historicalBalance = $currentBalance - $runningSumAfterMatrix;
+                }
+
                 $tempBalances[$datePoint['key']] = $historicalBalance;
 
                 $monthKey = $datePoint['key'];
@@ -111,7 +136,8 @@ class TrackerController extends Controller
                 }
 
                 // IMPORTANT: Convert to base currency (IDR) for aggregated totals
-                $balanceInBase = $wallet->currency === 'IDR' ? $historicalBalance : $historicalBalance * $rate;
+                $rate = $wallet->currency === 'IDR' ? 1.0 : ($rates[$wallet->currency] ?? 1.0);
+                $balanceInBase = $historicalBalance * $rate;
                 $totals[$datePoint['key']] += $balanceInBase;
             }
 
@@ -125,10 +151,10 @@ class TrackerController extends Controller
         ];
     }
 
-    private function generateDatePoints($range, $isPremium)
+    private function generateDatePoints($range, $isPremium, $month = null)
     {
         $dates = [];
-        $now = Carbon::now();
+        $now = $month ? Carbon::createFromFormat('Y-m', $month)->endOfMonth() : Carbon::now();
 
         $firstTransactionDate = Transaction::where('user_id', Auth::id())
             ->where('is_active', true)

@@ -368,15 +368,7 @@ const getDotColor = (type) => {
     }
 };
 const savingsRate = computed(() => {
-    const income = data.value.summary.monthly_income || 0;
-    const expense = data.value.summary.monthly_expense || 0;
-    
-    if (income === 0 && expense === 0) return 0;
-    // If income is 0 but there are expenses, savings rate is effectively -100% (or we can just show 0 to be safe)
-    if (income === 0) return 0;
-
-    const rate = ((income - expense) / income) * 100;
-    return Math.round(rate);
+    return data.value.summary.monthly_savings_rate || 0;
 });
 
 // Check if user has any transactions

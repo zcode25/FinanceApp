@@ -65,6 +65,10 @@ const triggerUpsell = (title, description) => {
 
 const range = ref(props.filters.range || '6m');
 
+onMounted(() => {
+    checkTourTriggers();
+});
+
 watch(range, (value) => {
     router.get(route('tracker'), { range: value }, {
         preserveState: true,
@@ -135,7 +139,7 @@ const getLatestChangeStat = (balances) => {
     const diff = current - previous;
     const pct = previous !== 0 ? (diff / Math.abs(previous)) * 100 : 0;
     
-    return { value: diff, percent: pct };
+    return { value: diff, percent: pct, hasPrevious: previous !== 0 };
 };
 
 const startTour = () => {
@@ -489,6 +493,9 @@ watch(() => page.url, () => {
                                                 {{ row.balances[period.key] > row.balances[periods[index-1].key] ? '▲' : (row.balances[period.key] < row.balances[periods[index-1].key] ? '▼' : '') }}
                                                 {{ Math.abs(((row.balances[period.key] - row.balances[periods[index-1].key]) / Math.abs(row.balances[periods[index-1].key]) * 100)).toFixed(1) }}%
                                             </span>
+                                            <span v-else-if="index > 0 && row.balances[period.key] !== 0" class="text-[10px] font-medium text-slate-400">
+                                                -
+                                            </span>
                                         </div>
                                     </td>
                                 </tr>
@@ -539,6 +546,7 @@ watch(() => page.url, () => {
                                             {{ data.totals[period.key] - data.totals[periods[index-1].key] >= 0 ? '▲' : '▼' }}
                                             {{ Math.abs(((data.totals[period.key] - data.totals[periods[index-1].key]) / Math.abs(data.totals[periods[index-1].key]) * 100)).toFixed(1) }}%
                                         </template>
+                                        <template v-else-if="index > 0">-</template>
                                         <template v-else>-</template>
                                     </td>
                                 </tr>
@@ -580,13 +588,17 @@ watch(() => page.url, () => {
                         <div class="text-right">
                             <p class="text-[14px] font-bold text-slate-900 tabular-nums">{{ formatCurrency(getLatestBalance(row.balances), row.currency).split(',')[0] }}</p>
                             <div class="flex items-center justify-end gap-1 mt-0.5">
-                                <span 
-                                    class="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
-                                    :class="getLatestChangeStat(row.balances).value >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
-                                >
-                                    {{ getLatestChangeStat(row.balances).value >= 0 ? '▲' : '▼' }} 
-                                    {{ Math.abs(getLatestChangeStat(row.balances).percent).toFixed(1) }}%
-                                </span>
+                                    <span 
+                                        v-if="getLatestChangeStat(row.balances).hasPrevious"
+                                        class="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
+                                        :class="getLatestChangeStat(row.balances).value >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'"
+                                    >
+                                        {{ getLatestChangeStat(row.balances).value >= 0 ? '▲' : '▼' }} 
+                                        {{ Math.abs(getLatestChangeStat(row.balances).percent).toFixed(1) }}%
+                                    </span>
+                                    <span v-else class="text-[10px] font-bold px-1.5 py-0.5 text-slate-400">
+                                        -
+                                    </span>
                             </div>
                         </div>
                     </div>

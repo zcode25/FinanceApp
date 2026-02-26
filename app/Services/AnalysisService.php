@@ -4,10 +4,9 @@ namespace App\Services;
 
 use App\Models\Transaction;
 use App\Models\Wallet;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AnalysisService
 {
@@ -15,9 +14,10 @@ class AnalysisService
      * Cache for request-level memoization.
      */
     protected array $memo = [];
+
     public function getSpendingByCategory(Carbon $startDate, Carbon $endDate)
     {
-        $key = 'spending_by_category_' . $startDate->toDateString() . '_' . $endDate->toDateString();
+        $key = 'spending_by_category_'.$startDate->toDateString().'_'.$endDate->toDateString();
         if (isset($this->memo[$key])) {
             return $this->memo[$key];
         }
@@ -36,7 +36,7 @@ class AnalysisService
                 return (object) [
                     'category_id' => $item->category_id,
                     'category_name' => $item->category ? $item->category->name : 'Unknown', // Explicit name
-                    'total' => (float) $item->total
+                    'total' => (float) $item->total,
                 ];
             });
     }
@@ -51,7 +51,7 @@ class AnalysisService
             ->where('is_active', true)
             ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$monthStr])
             ->select(
-                DB::raw("DAY(date) as day"),
+                DB::raw('DAY(date) as day'),
                 DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
                 DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency ELSE 0 END) as expense")
             )
@@ -66,7 +66,7 @@ class AnalysisService
         // 2. Map and fill gaps
         for ($d = 1; $d <= $daysInMonth; $d++) {
             $labels[] = str_pad($d, 2, '0', STR_PAD_LEFT);
-            
+
             $dayData = $dailyData->get($d);
             $incomeData[] = (float) ($dayData->income ?? 0);
             $expenseData[] = (float) ($dayData->expense ?? 0);
@@ -75,7 +75,7 @@ class AnalysisService
         return [
             'labels' => $labels,
             'income' => $incomeData,
-            'expense' => $expenseData
+            'expense' => $expenseData,
         ];
     }
 
@@ -101,7 +101,7 @@ class AnalysisService
                 $amount *= $rate;
             }
 
-            if (!isset($allocation[$wallet->type])) {
+            if (! isset($allocation[$wallet->type])) {
                 $allocation[$wallet->type] = 0;
             }
             $allocation[$wallet->type] += $amount;
@@ -114,7 +114,7 @@ class AnalysisService
 
     public function getSummary(Carbon $startDate, Carbon $endDate)
     {
-        $key = 'summary_' . $startDate->toDateString() . '_' . $endDate->toDateString();
+        $key = 'summary_'.$startDate->toDateString().'_'.$endDate->toDateString();
         if (isset($this->memo[$key])) {
             return $this->memo[$key];
         }
@@ -124,7 +124,7 @@ class AnalysisService
             ->whereBetween('date', [$startDate, $endDate])
             ->select(
                 DB::raw('SUM(CASE WHEN type = "income" THEN amount_in_base_currency ELSE 0 END) as total_income'),
-                DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency ELSE 0 END) as total_expense'),
+                DB::raw('SUM(CASE WHEN type = "expense" THEN amount_in_base_currency WHEN type = "transfer" THEN fee ELSE 0 END) as total_expense'),
                 DB::raw('SUM(CASE WHEN type = "expense" AND DAYOFWEEK(date) IN (1, 7) THEN amount_in_base_currency ELSE 0 END) as weekend_expense'),
                 DB::raw('COUNT(CASE WHEN type = "expense" AND amount_in_base_currency < 50000 THEN 1 END) as small_transaction_count')
             )
@@ -175,11 +175,11 @@ class AnalysisService
                     'type' => 'critical',
                     'title' => __('insight_inflation_title', ['category' => $cat->category_name]),
                     'message' => __('insight_inflation_message', [
-                        'amount' => 'Rp ' . number_format($cat->total, 0, ',', '.'),
+                        'amount' => 'Rp '.number_format($cat->total, 0, ',', '.'),
                         'category' => $cat->category_name,
-                        'percentage' => round(($cat->total / $avgMonthly) * 100 - 100)
+                        'percentage' => round(($cat->total / $avgMonthly) * 100 - 100),
                     ]),
-                    'icon' => 'TrendingUp'
+                    'icon' => 'TrendingUp',
                 ];
                 break; // Only show top anomaly
             }
@@ -200,15 +200,15 @@ class AnalysisService
                 $insights[] = [
                     'type' => 'critical',
                     'title' => __('insight_burn_rate_title'),
-                    'message' => __('insight_burn_rate_message', ['amount' => 'Rp ' . number_format($projectedSpend, 0, ',', '.')]),
-                    'icon' => 'Flame'
+                    'message' => __('insight_burn_rate_message', ['amount' => 'Rp '.number_format($projectedSpend, 0, ',', '.')]),
+                    'icon' => 'Flame',
                 ];
             } elseif ($income > 0 && $projectedSpend > ($income * 0.9)) {
                 $insights[] = [
                     'type' => 'warning',
                     'title' => __('insight_pacing_title'),
-                    'message' => __('insight_pacing_message', ['amount' => 'Rp ' . number_format($projectedSpend, 0, ',', '.')]),
-                    'icon' => 'AlertTriangle'
+                    'message' => __('insight_pacing_message', ['amount' => 'Rp '.number_format($projectedSpend, 0, ',', '.')]),
+                    'icon' => 'AlertTriangle',
                 ];
             }
         }
@@ -223,7 +223,7 @@ class AnalysisService
                 'type' => 'info',
                 'title' => __('insight_weekend_title'),
                 'message' => __('insight_weekend_message', ['percentage' => round(($weekendSpend / $totalSpend) * 100)]),
-                'icon' => 'Calendar'
+                'icon' => 'Calendar',
             ];
         }
 
@@ -235,7 +235,7 @@ class AnalysisService
                 'type' => 'warning',
                 'title' => __('insight_latte_title'),
                 'message' => __('insight_latte_message', ['count' => $smallTxCount, 'amount' => '50k']),
-                'icon' => 'Coffee'
+                'icon' => 'Coffee',
             ];
         }
 
@@ -246,7 +246,7 @@ class AnalysisService
                 'type' => 'success',
                 'title' => __('insight_savings_title'),
                 'message' => __('insight_savings_message', ['rate' => $summary['savings_rate']]),
-                'icon' => 'Award'
+                'icon' => 'Award',
             ];
         }
 
@@ -273,21 +273,21 @@ class AnalysisService
                     'type' => 'critical',
                     'title' => __('tip_emergency_critical_title'),
                     'message' => __('tip_emergency_critical_message', ['months' => number_format($runwayMonths, 1)]),
-                    'icon' => 'ShieldAlert'
+                    'icon' => 'ShieldAlert',
                 ];
             } elseif ($runwayMonths < 3) {
                 $tips[] = [
                     'type' => 'warning',
                     'title' => __('tip_emergency_warning_title'),
                     'message' => __('tip_emergency_warning_message', ['months' => number_format($runwayMonths, 1)]),
-                    'icon' => 'Shield'
+                    'icon' => 'Shield',
                 ];
             } elseif ($runwayMonths > 6) {
                 $tips[] = [
                     'type' => 'success',
                     'title' => __('tip_emergency_success_title'),
                     'message' => __('tip_emergency_success_message', ['months' => number_format($runwayMonths, 1)]),
-                    'icon' => 'TrendingUp'
+                    'icon' => 'TrendingUp',
                 ];
             }
         }
@@ -304,9 +304,9 @@ class AnalysisService
                 'title' => __('tip_squeeze_title', ['category' => $catName]),
                 'message' => __('tip_squeeze_message', [
                     'category' => $catName,
-                    'amount' => 'Rp ' . number_format($potentialSavings, 0, ',', '.')
+                    'amount' => 'Rp '.number_format($potentialSavings, 0, ',', '.'),
                 ]),
-                'icon' => 'Scissors'
+                'icon' => 'Scissors',
             ];
         }
 
@@ -317,12 +317,10 @@ class AnalysisService
                 'type' => 'warning',
                 'title' => __('tip_savings_title'),
                 'message' => __('tip_savings_message', ['rate' => $savingsRate]),
-                'icon' => 'PiggyBank'
+                'icon' => 'PiggyBank',
             ];
         }
 
         return $tips;
     }
 }
-
-

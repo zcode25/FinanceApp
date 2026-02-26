@@ -55,6 +55,10 @@ const skipHTML = `<div class="mt-4 flex justify-start">
 
     const selectedMonth = ref(props.filters?.month || getJakartaDate().slice(0, 7));
     
+    onMounted(() => {
+        checkTourTriggers();
+    });
+
     // Watch filters and reload
     watch(selectedMonth, (newMonth) => {
         router.get('/analysis', { month: newMonth }, {

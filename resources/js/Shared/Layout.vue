@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { LayoutDashboard, Wallet, PieChart, Banknote, Settings, Menu, X, User, ChevronDown, FileText, Tag, LogOut, TrendingUp, Target, BadgeCheck, Crown, ShieldAlert, Sparkles, Rocket, Zap } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
-import { onMounted } from 'vue';
 import { App } from '@capacitor/app';
 
 const page = usePage();
