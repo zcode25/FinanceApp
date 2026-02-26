@@ -2,19 +2,21 @@
 
 namespace App\Services;
 
-use App\Models\Transaction;
-use App\Models\Wallet;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Transaction;
+use App\Models\Wallet;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
     protected $exchangeRateService;
+
     protected $walletsCache = null;
+
     protected $categoriesCache = null;
 
     public function __construct(ExchangeRateService $exchangeRateService)
@@ -27,23 +29,23 @@ class DashboardService
         $userId = Auth::id();
         $now = Carbon::now();
 
-        // Calculate resolved month if none provided. 
+        // Calculate resolved month if none provided.
         // Force range calculation here because we need it for available_months dropdown.
         $resolvedMonth = $this->resolveEffectiveMonth($userId, $month, true);
         $month = $resolvedMonth['month'];
         $statsRange = $resolvedMonth['range'];
 
-        $selectedDate = Carbon::parse($month . '-01');
+        $selectedDate = Carbon::parse($month.'-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
         $monthStr = $selectedDate->format('Y-m');
-        
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $stats = $this->getAggregatedStats($userId, $startOfMonth, $endOfMonth);
         $totalBudget = Budget::where('user_id', $userId)->where('month', $monthStr)->sum('limit');
-        
+
         $wallets = $this->getCachedWallets($userId);
         $totalNetWorth = $this->getTotalNetWorth($wallets);
 
@@ -51,10 +53,15 @@ class DashboardService
             ? round((($stats->lifetime_income - $stats->lifetime_expense) / $stats->lifetime_income) * 100)
             : 0;
 
+        $monthlySavingsRate = $stats->monthly_income > 0
+            ? round((($stats->monthly_income - $stats->monthly_expense) / $stats->monthly_income) * 100, 1)
+            : 0;
+
         return [
             'summary' => [
                 'net_worth' => (float) $totalNetWorth,
                 'lifetime_savings_rate' => $savingsRate,
+                'monthly_savings_rate' => $monthlySavingsRate,
                 'emergency_fund_months' => $stats->last_3_months_expense > 0 ? round($totalNetWorth / ($stats->last_3_months_expense / 3), 1) : 0,
                 'monthly_income' => (float) $stats->monthly_income,
                 'monthly_expense' => (float) $stats->monthly_expense,
@@ -62,7 +69,7 @@ class DashboardService
                 'budget_limit' => (float) $totalBudget,
                 'burn_rate' => $totalBudget > 0 ? round(($stats->monthly_expense / $totalBudget) * 100) : 0,
                 'selected_month' => $monthStr,
-                'selected_month_label' => $selectedDate->translatedFormat('F Y')
+                'selected_month_label' => $selectedDate->translatedFormat('F Y'),
             ],
             'available_months' => $this->generateAvailableMonthsFromRange($statsRange, $now),
             'subscription' => [
@@ -80,8 +87,8 @@ class DashboardService
         $userId = Auth::id();
         $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
         $month = $resolvedMonth['month'];
-        $selectedDate = Carbon::parse($month . '-01');
-        
+        $selectedDate = Carbon::parse($month.'-01');
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $userId = $user?->id;
@@ -101,16 +108,16 @@ class DashboardService
         $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
         $month = $resolvedMonth['month'];
 
-        $selectedDate = Carbon::parse($month . '-01');
+        $selectedDate = Carbon::parse($month.'-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
-        
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $userId = $user?->id;
 
         $wallets = $this->getCachedWallets($userId);
-        
+
         $categoryBreakdownRaw = Transaction::where('user_id', $userId)
             ->where('is_active', true)
             ->where('type', 'expense')
@@ -126,11 +133,12 @@ class DashboardService
 
         $categories = $categoryBreakdownRaw->map(function ($item) use ($categoriesById) {
             $cat = $categoriesById->get($item->category_id);
+
             return [
                 'category_id' => $item->category_id,
                 'total' => $item->total,
                 'category' => $cat ? $cat->name : 'Unknown',
-                'color' => $cat ? $cat->color : 'bg-gray-500'
+                'color' => $cat ? $cat->color : 'bg-gray-500',
             ];
         });
 
@@ -146,10 +154,10 @@ class DashboardService
         $resolvedMonth = $this->resolveEffectiveMonth($userId, $month);
         $month = $resolvedMonth['month'];
 
-        $selectedDate = Carbon::parse($month . '-01');
+        $selectedDate = Carbon::parse($month.'-01');
         $startOfMonth = $selectedDate->copy()->startOfMonth();
         $endOfMonth = $selectedDate->copy()->endOfMonth();
-        
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $userId = $user?->id;
@@ -162,13 +170,13 @@ class DashboardService
             ->get();
 
         $walletsById = $this->getCachedWallets($userId)->keyBy('id');
-        
+
         $categoryIds = $recentTransactions->pluck('category_id')->filter()->unique();
         $categoriesById = $this->getCachedCategories($categoryIds);
 
         $mappedTransactions = $recentTransactions->flatMap(function ($tx) use ($walletsById, $categoriesById) {
             $results = [];
-            
+
             $tx->setRelation('wallet', $walletsById->get($tx->wallet_id));
             $tx->setRelation('category', $categoriesById->get($tx->category_id));
 
@@ -180,7 +188,7 @@ class DashboardService
                 $sourceTx = clone $tx;
                 $sourceTx->setAttribute('computed_type', 'transfer_out');
                 $results[] = $sourceTx;
-                
+
                 // Target view (Transfer In)
                 $targetTx = clone $tx;
                 $targetTx->setAttribute('computed_type', 'transfer_in');
@@ -189,7 +197,7 @@ class DashboardService
                 $tx->setAttribute('computed_type', $tx->type);
                 $results[] = $tx;
             }
-            
+
             return $results;
         });
 
@@ -204,6 +212,7 @@ class DashboardService
                 ->get()
                 ->keyBy('id');
         }
+
         return $this->walletsCache;
     }
 
@@ -218,7 +227,7 @@ class DashboardService
         }
 
         // Find IDs not in cache
-        $missingIds = $ids->reject(fn($id) => $this->categoriesCache->has($id));
+        $missingIds = $ids->reject(fn ($id) => $this->categoriesCache->has($id));
 
         if ($missingIds->isNotEmpty()) {
             $newCategories = Category::whereIn('id', $missingIds)->get()->keyBy('id');
@@ -228,7 +237,6 @@ class DashboardService
 
         return $this->categoriesCache->only($ids);
     }
-
 
     private function getTotalNetWorth($wallets)
     {
@@ -241,6 +249,7 @@ class DashboardService
                 $totalNetWorth += $wallet->balance * $rate;
             }
         }
+
         return $totalNetWorth;
     }
 
@@ -253,10 +262,15 @@ class DashboardService
             ->selectRaw("
                 SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as lifetime_income,
                 SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency WHEN type = 'transfer' THEN fee ELSE 0 END) as lifetime_expense,
-                SUM(CASE WHEN type = 'income' AND date BETWEEN ? AND ? THEN amount_in_base_currency ELSE 0 END) as monthly_income,
-                SUM(CASE WHEN type = 'expense' AND date BETWEEN ? AND ? THEN amount_in_base_currency WHEN type = 'transfer' AND date BETWEEN ? AND ? THEN fee ELSE 0 END) as monthly_expense,
+                SUM(CASE WHEN type = 'income' AND date >= ? AND date <= ? THEN amount_in_base_currency ELSE 0 END) as monthly_income,
+                SUM(CASE WHEN type = 'expense' AND date >= ? AND date <= ? THEN amount_in_base_currency WHEN type = 'transfer' AND date >= ? AND date <= ? THEN fee ELSE 0 END) as monthly_expense,
                 SUM(CASE WHEN type = 'expense' AND date >= ? THEN amount_in_base_currency WHEN type = 'transfer' AND date >= ? THEN fee ELSE 0 END) as last_3_months_expense
-            ", [$startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $startOfMonth, $endOfMonth, $last3Months, $last3Months])
+            ", [
+                $startOfMonth->toDateTimeString(), $endOfMonth->toDateTimeString(), 
+                $startOfMonth->toDateTimeString(), $endOfMonth->toDateTimeString(), 
+                $startOfMonth->toDateTimeString(), $endOfMonth->toDateTimeString(), 
+                $last3Months->toDateTimeString(), $last3Months->toDateTimeString()
+            ])
             ->first();
     }
 
@@ -264,12 +278,12 @@ class DashboardService
     {
         $daysInMonth = $selectedDate->daysInMonth;
         $monthStr = $selectedDate->format('Y-m');
-        
+
         $dailyData = Transaction::where('user_id', $userId)
             ->where('is_active', true)
             ->whereRaw("DATE_FORMAT(date, '%Y-%m') = ?", [$monthStr])
             ->select(
-                DB::raw("DAY(date) as day"),
+                DB::raw('DAY(date) as day'),
                 DB::raw("SUM(CASE WHEN type = 'income' THEN amount_in_base_currency ELSE 0 END) as income"),
                 DB::raw("SUM(CASE WHEN type = 'expense' THEN amount_in_base_currency WHEN type = 'transfer' THEN fee ELSE 0 END) as expense")
             )
@@ -295,7 +309,7 @@ class DashboardService
     {
         return $wallets->map(function ($w) {
             $balanceInIdr = $w->balance;
-            
+
             if ($w->currency !== 'IDR') {
                 $rate = $this->exchangeRateService->getCurrentRate($w->currency, 'IDR') ?? 1.0;
                 $balanceInIdr = $w->balance * $rate;
@@ -306,31 +320,31 @@ class DashboardService
                 'type' => $w->type,
                 'balance' => $balanceInIdr,
                 'currency' => $w->currency,
-                'color' => $w->color ?? 'bg-indigo-500'
+                'color' => $w->color ?? 'bg-indigo-500',
             ];
         });
     }
 
     private function generateAvailableMonthsFromRange($range, $now)
     {
-        if (!$range || !$range->min_date) {
+        if (! $range || ! $range->min_date) {
             return collect([
                 [
                     'value' => $now->format('Y-m'),
-                    'label' => $now->translatedFormat('F Y')
-                ]
+                    'label' => $now->translatedFormat('F Y'),
+                ],
             ]);
         }
 
         $startDate = Carbon::parse($range->min_date)->startOfMonth();
         $endDate = Carbon::parse($range->max_date)->startOfMonth();
-        
+
         $months = collect();
 
         while ($startDate->lte($endDate)) {
             $months->push([
                 'value' => $endDate->format('Y-m'),
-                'label' => $endDate->translatedFormat('F Y')
+                'label' => $endDate->translatedFormat('F Y'),
             ]);
             $endDate->subMonth();
         }
@@ -340,16 +354,16 @@ class DashboardService
 
     private function resolveEffectiveMonth($userId, $month = null, $forceRange = false)
     {
-        // If month is already specified and we don't strictly need the range object 
+        // If month is already specified and we don't strictly need the range object
         // (e.g. for charts/transactions segments), we can skip the SQL query.
-        if ($month && !$forceRange) {
+        if ($month && ! $forceRange) {
             return [
                 'month' => $month,
-                'range' => null
+                'range' => null,
             ];
         }
 
-        // Cache the range query for 1 minute to sync across the 4 requests 
+        // Cache the range query for 1 minute to sync across the 4 requests
         // triggered by Inertia's deferred props on the same page load.
         $statsRange = Cache::remember("user_{$userId}_tx_range_v2", 60, function () use ($userId) {
             return Transaction::where('user_id', $userId)
@@ -358,15 +372,15 @@ class DashboardService
                 ->first();
         });
 
-        if (!$month) {
+        if (! $month) {
             $month = ($statsRange && $statsRange->max_date)
-                ? Carbon::parse($statsRange->max_date)->format('Y-m') 
+                ? Carbon::parse($statsRange->max_date)->format('Y-m')
                 : Carbon::now()->format('Y-m');
         }
 
         return [
             'month' => $month,
-            'range' => $statsRange
+            'range' => $statsRange,
         ];
     }
 }
