@@ -520,7 +520,12 @@ import UpgradeModal from '../../Shared/UpgradeModal.vue';
                             ? __('tour_return_hub_desc') + skipHTML
                             : __('tour_record_activity_desc') + skipHTML, 
                         position: isMobile ? 'top' : 'bottom'
-                    } 
+                    },
+                    onHighlighted: () => {
+                        if (isMobile) {
+                            localStorage.setItem('tour_state', 'hub_to_transactions');
+                        }
+                    }
                 },
             ]
         });

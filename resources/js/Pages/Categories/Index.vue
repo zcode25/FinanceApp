@@ -288,6 +288,11 @@ const startTour = () => {
                         : __('tour_wealth_map_desc') + skipHTML,
                     side: "bottom",
                     align: 'start'
+                },
+                onHighlighted: () => {
+                    if (isMobile) {
+                        localStorage.setItem('tour_state', 'final_congrats');
+                    }
                 }
             }
         ]

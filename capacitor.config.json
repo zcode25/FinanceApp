@@ -1,0 +1,22 @@
+{
+  "appId": "com.terasweb.vibefinance",
+  "appName": "VibeFinance",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://vibefinance.terasweb.id/login",
+    "cleartext": true
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "overlaysWebView": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#ffffff",
+      "showSpinner": true,
+      "androidScaleType": "CENTER_CROP"
+    }
+  }
+}

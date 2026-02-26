@@ -407,6 +407,11 @@ const startTour = () => {
                         : __('tour_return_categories_desc')) + skipHTML.value,
                     side: "bottom",
                     align: 'start'
+                },
+                onHighlighted: () => {
+                    if (isMobile) {
+                        localStorage.setItem('tour_state', 'hub_to_categories');
+                    }
                 }
             }
         ]

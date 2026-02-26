@@ -438,6 +438,9 @@ const fireConfetti = () => {
                     description: __('tour_wallets_desc') + skipHTML,
                     side: isMobile ? "top" : "bottom",
                     align: 'start'
+                },
+                onHighlighted: () => {
+                    localStorage.setItem('tour_state', 'hub_to_wallets');
                 }
             });
         } else if (phase === 'dashboard_explanation') {
@@ -486,6 +489,9 @@ const fireConfetti = () => {
                     description: __('tour_analysis_desc') + skipHTML,
                     side: isMobile ? "top" : "bottom",
                     align: 'start'
+                },
+                onHighlighted: () => {
+                    localStorage.setItem('tour_state', 'hub_to_analysis');
                 }
             });
         } else if (phase.startsWith('hub_to_')) {
@@ -672,26 +678,8 @@ const fireConfetti = () => {
             } else if (tourState === 'dashboard_explanation') {
 
                 setTimeout(() => startTour('dashboard_explanation'), 800);
-            } else if (tourState === 'wallet_setup') {
-
-                setTimeout(() => startTour('hub_to_wallets'), 800);
-            } else if (tourState === 'analysis_intro') {
-
-                setTimeout(() => startTour('hub_to_analysis'), 800);
-            } else if (tourState === 'budget_setup') {
-
-                setTimeout(() => startTour('hub_to_budget'), 800);
-            } else if (tourState === 'goals_setup') {
-
-                setTimeout(() => startTour('hub_to_goals'), 800);
-            } else if (tourState === 'categories_setup') {
-
-                setTimeout(() => startTour('hub_to_categories'), 800);
-            } else if (tourState === 'tracker_intro') {
-
-                setTimeout(() => startTour('hub_to_tracker'), 800);
             } else if (tourState?.startsWith('hub_to_')) {
-
+                setTimeout(() => startTour(tourState), 800);
             } else if (tourState === 'reports_intro' || tourState === 'final_congrats') {
 
                 localStorage.setItem('tour_state', 'final_congrats');

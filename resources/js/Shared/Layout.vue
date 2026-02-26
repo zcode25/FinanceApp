@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { LayoutDashboard, Wallet, PieChart, Banknote, Settings, Menu, X, User, ChevronDown, FileText, Tag, LogOut, TrendingUp, Target, BadgeCheck, Crown, ShieldAlert, Sparkles, Rocket, Zap } from 'lucide-vue-next';
 import { route } from 'ziggy-js';
+import { onMounted } from 'vue';
+import { App } from '@capacitor/app';
 
 const page = usePage();
 const __ = (key) => page.props.translations?.[key] || key;
@@ -32,22 +34,22 @@ const planColor = computed(() => {
 });
 
 const navigation = computed(() => [
-  { name: __('dashboard'), href: '/dashboard', icon: LayoutDashboard },
-  { name: __('transactions'), href: '/transactions', icon: Banknote },
-  { name: __('wallets'), href: '/wallets', icon: Wallet },
-  { name: __('analysis'), href: '/analysis', icon: PieChart },
-  { name: __('budget'), href: '/budget', icon: Banknote },
-  { name: __('goals'), href: '/goals', icon: Target },
-  { name: __('categories'), href: '/categories', icon: Tag },
-  { name: __('tracker'), href: '/tracker', icon: TrendingUp },
-  { name: __('reports'), href: '/reports', icon: FileText },
-  { name: __('subscription'), href: '/subscription', icon: Crown },
+  { id: 'dashboard', name: __('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+  { id: 'transactions', name: __('transactions'), href: '/transactions', icon: Banknote },
+  { id: 'wallets', name: __('wallets'), href: '/wallets', icon: Wallet },
+  { id: 'analysis', name: __('analysis'), href: '/analysis', icon: PieChart },
+  { id: 'budget', name: __('budget'), href: '/budget', icon: Banknote },
+  { id: 'goals', name: __('goals'), href: '/goals', icon: Target },
+  { id: 'categories', name: __('categories'), href: '/categories', icon: Tag },
+  { id: 'tracker', name: __('tracker'), href: '/tracker', icon: TrendingUp },
+  { id: 'reports', name: __('reports'), href: '/reports', icon: FileText },
+  { id: 'subscription', name: __('subscription'), href: '/subscription', icon: Crown },
 ]);
 
 const bottomNavItems = computed(() => [
-  { name: __('home'), href: '/dashboard', icon: LayoutDashboard },
-  { name: __('transactions'), href: '/transactions', icon: Banknote },
-  { name: __('analysis'), href: '/analysis', icon: PieChart }
+  { id: 'home', name: __('home'), href: '/dashboard', icon: LayoutDashboard },
+  { id: 'transactions', name: __('transactions'), href: '/transactions', icon: Banknote },
+  { id: 'analysis', name: __('analysis'), href: '/analysis', icon: PieChart }
 ]);
 
 const isCollapsed = ref(false); // Desktop state
@@ -85,6 +87,17 @@ const getAvatarUrl = (avatar) => {
     if (avatar.startsWith('avatars/')) return `/media/${avatar}`;
     return `/media/avatars/${avatar}`;
 };
+
+onMounted(() => {
+  // Deep Link Listener for Capacitor
+  App.addListener('appUrlOpen', (event) => {
+    // Extract path from URL (e.g., https://vibefinance.terasweb.id/dashboard -> /dashboard)
+    const slug = event.url.split('.id').pop();
+    if (slug) {
+      router.visit(slug);
+    }
+  });
+});
 </script>
 
 <template>
@@ -222,7 +235,7 @@ const getAvatarUrl = (avatar) => {
           :key="item.name" 
           :href="item.href"
           prefetch
-          :id="`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`"
+          :id="`nav-${item.id}`"
           class="relative py-4 text-sm font-semibold transition-all whitespace-nowrap"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'"
         >
@@ -239,14 +252,14 @@ const getAvatarUrl = (avatar) => {
     </main>
 
     <!-- FIXED BOTTOM NAVIGATION (MOBILE ONLY) -->
-    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-6 py-4 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] rounded-t-[2.5rem]">
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100 px-6 py-4 pb-[calc(2rem + env(safe-area-inset-bottom))] shadow-[0_-8px_30_rgba(0,0,0,0.08)] rounded-t-[2.5rem]">
       <nav class="flex items-center justify-around">
         <Link 
           v-for="item in bottomNavItems" 
           :key="item.name" 
           :href="item.href"
           prefetch
-          :id="`mobile-nav-${item.name.toLowerCase()}`"
+          :id="`mobile-nav-${item.id}`"
           class="flex flex-col items-center gap-1.5 transition-all active:scale-95"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400'"
         >
