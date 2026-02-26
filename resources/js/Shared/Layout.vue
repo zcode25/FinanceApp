@@ -34,22 +34,22 @@ const planColor = computed(() => {
 });
 
 const navigation = computed(() => [
-  { name: __('dashboard'), href: '/dashboard', icon: LayoutDashboard },
-  { name: __('transactions'), href: '/transactions', icon: Banknote },
-  { name: __('wallets'), href: '/wallets', icon: Wallet },
-  { name: __('analysis'), href: '/analysis', icon: PieChart },
-  { name: __('budget'), href: '/budget', icon: Banknote },
-  { name: __('goals'), href: '/goals', icon: Target },
-  { name: __('categories'), href: '/categories', icon: Tag },
-  { name: __('tracker'), href: '/tracker', icon: TrendingUp },
-  { name: __('reports'), href: '/reports', icon: FileText },
-  { name: __('subscription'), href: '/subscription', icon: Crown },
+  { id: 'dashboard', name: __('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+  { id: 'transactions', name: __('transactions'), href: '/transactions', icon: Banknote },
+  { id: 'wallets', name: __('wallets'), href: '/wallets', icon: Wallet },
+  { id: 'analysis', name: __('analysis'), href: '/analysis', icon: PieChart },
+  { id: 'budget', name: __('budget'), href: '/budget', icon: Banknote },
+  { id: 'goals', name: __('goals'), href: '/goals', icon: Target },
+  { id: 'categories', name: __('categories'), href: '/categories', icon: Tag },
+  { id: 'tracker', name: __('tracker'), href: '/tracker', icon: TrendingUp },
+  { id: 'reports', name: __('reports'), href: '/reports', icon: FileText },
+  { id: 'subscription', name: __('subscription'), href: '/subscription', icon: Crown },
 ]);
 
 const bottomNavItems = computed(() => [
-  { name: __('home'), href: '/dashboard', icon: LayoutDashboard },
-  { name: __('transactions'), href: '/transactions', icon: Banknote },
-  { name: __('analysis'), href: '/analysis', icon: PieChart }
+  { id: 'home', name: __('home'), href: '/dashboard', icon: LayoutDashboard },
+  { id: 'transactions', name: __('transactions'), href: '/transactions', icon: Banknote },
+  { id: 'analysis', name: __('analysis'), href: '/analysis', icon: PieChart }
 ]);
 
 const isCollapsed = ref(false); // Desktop state
@@ -235,7 +235,7 @@ onMounted(() => {
           :key="item.name" 
           :href="item.href"
           prefetch
-          :id="`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`"
+          :id="`nav-${item.id}`"
           class="relative py-4 text-sm font-semibold transition-all whitespace-nowrap"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'"
         >
@@ -259,7 +259,7 @@ onMounted(() => {
           :key="item.name" 
           :href="item.href"
           prefetch
-          :id="`mobile-nav-${item.name.toLowerCase()}`"
+          :id="`mobile-nav-${item.id}`"
           class="flex flex-col items-center gap-1.5 transition-all active:scale-95"
           :class="$page.url.split('?')[0] === item.href ? 'text-indigo-600' : 'text-slate-400'"
         >

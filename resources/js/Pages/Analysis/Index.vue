@@ -396,6 +396,11 @@ const skipHTML = `<div class="mt-4 flex justify-start">
                             : __('tour_budget_control_desc')) + skipHTML,
                         side: "bottom",
                     align: 'start'
+                },
+                onHighlighted: () => {
+                    if (isMobile) {
+                        localStorage.setItem('tour_state', 'hub_to_budget');
+                    }
                 }
             }
         ]

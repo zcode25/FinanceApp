@@ -269,6 +269,11 @@ const canCreateCategory = computed(() => props.is_premium || customCategoryCount
                             : __('tour_budget_goals_desc') + skipHTML.value,
                         side: "bottom",
                         align: 'start'
+                    },
+                    onHighlighted: () => {
+                        if (isMobile) {
+                            localStorage.setItem('tour_state', 'hub_to_goals');
+                        }
                     }
                 }
             ]
