@@ -161,37 +161,37 @@ const paymentMethods = [
         id: 'bni', 
         name: 'BNI VA', 
         type: 'virtual_account', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Bank_Negara_Indonesia_logo_%282004%29.svg/512px-Bank_Negara_Indonesia_logo_%282004%29.svg.png'
+        logo: '/images/payments/BNI.png'
     },
     { 
         id: 'bri', 
         name: 'BRI VA', 
         type: 'virtual_account', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/BRI_2025_%28with_full_name%29.svg/512px-BRI_2025_%28with_full_name%29.svg.png'
+        logo: '/images/payments/BRI.png'
     },
     { 
         id: 'mandiri', 
         name: 'Mandiri VA', 
         type: 'virtual_account', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/512px-Bank_Mandiri_logo_2016.svg.png'
+        logo: '/images/payments/Mandiri.png'
     },
     { 
         id: 'permata', 
         name: 'Permata VA', 
         type: 'virtual_account', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/Permata_Bank_%282024%29.svg/512px-Permata_Bank_%282024%29.svg.png'
+        logo: '/images/payments/Permata.png'
     },
     { 
         id: 'cimb', 
         name: 'CIMB VA', 
         type: 'virtual_account', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/CIMB_Niaga_logo.svg/512px-CIMB_Niaga_logo.svg.png'
+        logo: '/images/payments/CIMB.png'
     },
     { 
         id: 'gopay', 
         name: 'GoPay', 
         type: 'ewallet', 
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/512px-Gopay_logo.svg.png'
+        logo: '/images/payments/Gopay.png'
     },
 ];
 
